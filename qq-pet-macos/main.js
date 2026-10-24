@@ -71,6 +71,10 @@ const createWindow = async () => {
 // macOS: 不加载 PepFlash DLL（使用 Ruffle WASM 替代）
 app.commandLine.appendSwitch("disable-site-isolation-trials");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+// 渔场/后花园等弹窗以 file:// 加载，并用 iframe 加载本地 http 服务里的 SWF。
+// 不加这个开关时，file:// 页面无法访问 http:// iframe 的 contentWindow，
+// 宠物数据（元宝、鱼苗等）就无法注入到 SWF，导致无法购买/投放鱼苗。
+app.commandLine.appendSwitch("allow-file-access-from-files");
 
 app.whenReady().then(() => {
   createWindow();

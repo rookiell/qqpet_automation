@@ -1,12 +1,46 @@
 let saveOpt = {},
   saveTime = null;
-// 设置键值对到 Cookie 中，过期时间为 1 年
+// Electron 中该页面以 file:// 加载，iframe 又是 http:// 的跨域页面，
+// 这种第三方上下文里 document.cookie 会被浏览器直接禁用（写入静默失败）。
+// 这里用 localStorage（不可用时退回内存）代替 Cookie 保存临时数据，
+// 真正的持久化仍然通过 saveInfoData 交给主进程存档。
+const cookieStore = (() => {
+  const memory = {};
+  try {
+    const testKey = "qqpet_cookie_test";
+    localStorage.setItem(testKey, "1");
+    localStorage.removeItem(testKey);
+    return {
+      get(key) {
+        return localStorage.getItem(key);
+      },
+      set(key, value) {
+        localStorage.setItem(key, value);
+      },
+    };
+  } catch (e) {
+    return {
+      get(key) {
+        return Object.prototype.hasOwnProperty.call(memory, key)
+          ? memory[key]
+          : null;
+      },
+      set(key, value) {
+        memory[key] = value;
+      },
+    };
+  }
+})();
+// 设置键值对
 function setCookie(key, value, save) {
-  const now = new Date();
-  now.setFullYear(now.getFullYear() + 1); // 设置 1 年后为过期时间
-  document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(
-    value
-  )};expires=${now.toUTCString()};path=/`;
+  try {
+    cookieStore.set(
+      "qqpet_" + encodeURIComponent(key),
+      encodeURIComponent(value)
+    );
+  } catch (e) {
+    console.log("setCookie error", e);
+  }
   if (save) {
     //进行保存调用
     if (saveTime) {
@@ -26,17 +60,18 @@ function setCookie(key, value, save) {
   }
 }
 
-// 从 Cookie 中读取键值对
+// 读取键值对
 function getCookie(key) {
-  const cookies = document.cookie.split("; "); // 分割 Cookie 字符串为键值对数组
-  for (const cookie of cookies) {
-    const [cookieKey, cookieValue] = cookie.split("="); // 分割键和值
-    if (decodeURIComponent(cookieKey) === key) {
-      // setCookie(key, decodeURIComponent(cookieValue)); // 更新过期时间
-      return decodeURIComponent(cookieValue); // 返回解码后的值
+  try {
+    const value = cookieStore.get("qqpet_" + encodeURIComponent(key));
+    if (value === null || value === undefined) {
+      return null;
     }
+    return decodeURIComponent(value);
+  } catch (e) {
+    console.log("getCookie error", e);
+    return null;
   }
-  return null; // 如果找不到键，返回 null
 }
 
 window.closeFrame = () => {
