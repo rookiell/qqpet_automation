@@ -6,7 +6,12 @@
 
 ## [Unreleased]
 
+### 变更
+- **安装包文件名改为英文**：macOS / Windows 产物统一为 `qq-pet-<版本>-arm64-mac.dmg|zip`、`qq-pet-<版本>-setup.exe`、`qq-pet-<版本>-portable.exe`，与 Linux 命名一致；此前中文 `QQ宠物` 在 GitHub Release 附件中会被替换成 `QQ.`。应用名与安装后的显示名仍为「QQ宠物」。
+
 ### 修复
+- **小游戏窗口黑屏、渔场无法购买/投放鱼苗（#20，#22）**
+- **CI：Windows 构建解压资源包失败（#23）**：新 runner 镜像自带 `tar.exe` 无法解析中文文件名，改用 Git Bash 的 GNU tar。
 - **Windows 启动后桌宠不显示 / renderer 崩溃（#10）**：回退到 v1.5.0 已验证的 Electron 28 运行时与打包配置，移除 v1.5.1 引入的 Electron 33 升级、V8 堆裁剪和 Chromium 功能裁剪；保留 v1.6.0 的 DeepSeek、商店与专注守护功能代码。
 - 撤回 v1.6.1 rc 中针对 Electron 33 的启动开关、`contextIsolation:false` 和 preload 改写实验，恢复 v1.5.0/v1.6.0 原有窗口隔离模型。
 

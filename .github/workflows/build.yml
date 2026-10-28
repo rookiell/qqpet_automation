@@ -218,7 +218,7 @@ jobs:
             已移除遥测、设备指纹采集，使用 Ruffle WASM 替代 Flash。
 
             ### macOS 安装（Apple Silicon M1/M2/M3/M4）
-            1. 下载 `.dmg` 文件
+            1. 下载 `qq-pet-x.x.x-arm64-mac.dmg`
             2. 双击打开，将 `QQ宠物.app` 拖入 `Applications`
             3. 如提示"已损坏"，在终端执行：
                ```
@@ -226,8 +226,8 @@ jobs:
                ```
 
             ### Windows 安装
-            - **安装版**：下载 `QQ宠物 Setup x.x.x.exe`，双击安装
-            - **便携版**：下载 `QQ宠物-x.x.x-portable.exe`，直接运行，无需安装
+            - **安装版**：下载 `qq-pet-x.x.x-setup.exe`，双击安装
+            - **便携版**：下载 `qq-pet-x.x.x-portable.exe`，直接运行，无需安装
 
             ### Linux 安装（x86_64 / arm64）
             - **AppImage**（推荐）：下载 `qq-pet-x.x.x-<arch>.AppImage`，`chmod +x` 后双击或命令行运行
