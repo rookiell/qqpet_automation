@@ -174,3 +174,5 @@
   position: relative;
   top: 1px;
 }
+
+.getOnlineGift.giftDisabled{filter:grayscale(1);opacity:.4;}

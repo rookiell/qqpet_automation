@@ -78,7 +78,7 @@
     <div class="onceInfo onceInfoLine">
       <div class="label">在线：</div>
       <div class="value mr16">{{petInfo?.info?.onlineDataTime|| 0}}/分钟</div>
-      <div class="getOnlineGift fcc focusPress" @click="chooseOnce({type:'task'})">
+      <div class="getOnlineGift fcc focusPress" :class="{giftDisabled: !petInfo?.claimable}" @click="chooseOnce({type:'task'})">
         <div>领取</div>
       </div>
     </div>
