@@ -31,9 +31,9 @@ QQ 宠物（怀旧服 v1.2.4）的逆向分析与桌面移植项目（macOS / Wi
 
 | 平台 | 文件 | 说明 |
 |------|------|------|
-| macOS (Apple Silicon) | `QQ宠物-x.x.x-arm64.dmg` | DMG 安装包 |
-| Windows (64位) | `QQ宠物 Setup x.x.x.exe` | NSIS 安装程序 |
-| Windows (64位) | `QQ宠物-x.x.x-portable.exe` | 免安装便携版 |
+| macOS (Apple Silicon) | `qq-pet-x.x.x-arm64-mac.dmg` | DMG 安装包 |
+| Windows (64位) | `qq-pet-x.x.x-setup.exe` | NSIS 安装程序 |
+| Windows (64位) | `qq-pet-x.x.x-portable.exe` | 免安装便携版 |
 | Linux (x86_64) | `qq-pet-x.x.x-x86_64.AppImage` / `qq-pet-x.x.x-x64.tar.gz` | AppImage 或 tar.gz |
 | Linux (arm64) | `qq-pet-x.x.x-arm64.AppImage` / `qq-pet-x.x.x-arm64.tar.gz` | AppImage 或 tar.gz |
 
@@ -53,8 +53,8 @@ QQ 宠物（怀旧服 v1.2.4）的逆向分析与桌面移植项目（macOS / Wi
 
 #### Windows 安装
 
-- **安装版**：双击 `QQ宠物 Setup x.x.x.exe`，可自定义安装目录
-- **便携版**：双击 `QQ宠物-x.x.x-portable.exe` 直接运行，无需安装
+- **安装版**：双击 `qq-pet-x.x.x-setup.exe`，可自定义安装目录
+- **便携版**：双击 `qq-pet-x.x.x-portable.exe` 直接运行，无需安装
 
 > **⚠️ Windows SmartScreen 提示**
 >

@@ -48,6 +48,7 @@
     "mac": {
       "category": "public.app-category.entertainment",
       "icon": "resources/icon.png",
+      "artifactName": "qq-pet-${version}-${arch}-mac.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -90,6 +91,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "artifactName": "qq-pet-${version}-setup.${ext}",
       "installerIcon": "resources/icon.ico",
       "uninstallerIcon": "resources/icon.ico",
       "installerHeaderIcon": "resources/icon.ico",
@@ -98,7 +100,7 @@
       "shortcutName": "QQ宠物"
     },
     "portable": {
-      "artifactName": "QQ宠物-${version}-portable.exe"
+      "artifactName": "qq-pet-${version}-portable.${ext}"
     },
     "dmg": {
       "title": "QQ宠物 ${version}",
