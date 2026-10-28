@@ -76,13 +76,16 @@ jobs:
         with:
           node-version: '20'
 
+      # Windows 自带 bsdtar 在 windows-2025 镜像上无法解析包内中文文件名，改用 Git Bash 的 GNU tar
       - name: Download resources
+        shell: bash
         run: |
           cd qq-pet-macos
-          gh release download resources-v1 `
-            --pattern 'qq-pet-resources.tar.gz' `
-            --dir $env:TEMP
-          tar xzf "$env:TEMP\qq-pet-resources.tar.gz"
+          gh release download resources-v1 \
+            --pattern 'qq-pet-resources.tar.gz' \
+            --dir ..
+          /usr/bin/gzip -dc ../qq-pet-resources.tar.gz | /usr/bin/tar -xf -
+          rm ../qq-pet-resources.tar.gz
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
