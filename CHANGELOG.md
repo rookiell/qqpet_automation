@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-30
+
 ### 变更
 - **安装包文件名改为英文**：macOS / Windows 产物统一为 `qq-pet-<版本>-arm64-mac.dmg|zip`、`qq-pet-<版本>-setup.exe`、`qq-pet-<版本>-portable.exe`，与 Linux 命名一致；此前中文 `QQ宠物` 在 GitHub Release 附件中会被替换成 `QQ.`。应用名与安装后的显示名仍为「QQ宠物」。
 
@@ -138,7 +140,8 @@
 - 禁用远程自动更新检查
 - 存储改为明文 JSON（方便审计与 CLI 读写）
 
-[Unreleased]: https://github.com/xuemian168/qqpet_automation/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/xuemian168/qqpet_automation/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/xuemian168/qqpet_automation/releases/tag/v1.6.1
 [1.3.2]: https://github.com/xuemian168/qqpet_automation/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/xuemian168/qqpet_automation/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/xuemian168/qqpet_automation/compare/v1.2.4-clean...v1.3.0
