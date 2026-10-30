@@ -65,15 +65,26 @@
                     (this.changeSwf(this.saveChange),
                     (this.saveChange = null)));
               } catch (t) {}
-              this.dom = document.getElementById(this.id);
-              let i = { ...e, event: "setState", dom: this.dom };
-              (s(a) && a(i),
-                s(this.backFn) && this.backFn(i),
-                this.changeNum++);
+              // Ruffle polyfill 可能晚于定时器才替换 <embed>，等新节点真正挂上再回传，
+              // 否则 this.dom 会指向已被移除的节点，之后所有换片都会静默失败。
+              this.bindDom((t) => {
+                let i = { ...e, event: "setState", dom: t };
+                (s(a) && a(i),
+                  s(this.backFn) && this.backFn(i),
+                  this.changeNum++);
+              });
             }, this.delayTime));
         } catch (t) {
           console.log(t);
         }
+    }
+    bindDom(t, e = 40) {
+      let a = document.getElementById(this.id);
+      if (a && !1 !== a.isConnected)
+        return ((this.dom = a), ffMap.delete(a), void t(a));
+      e > 0
+        ? setTimeout(() => this.bindDom(t, e - 1), 50)
+        : ((this.dom = a || this.dom), t(this.dom));
     }
     setState(t) {
       this.state = t;
@@ -99,6 +110,9 @@
             ? -1 != (this.onceNext.name + "").indexOf(this.nextSwfRouter.name)
             : this.onceNext) ||
           a == e + t ||
+          // Stand.swf 这类站姿只有 1 帧，永远等不到“播到倒数第 t 帧”，
+          // 有排队动作时直接放行，否则喂食/洗澡/说话/闲置玩耍全都上不了屏
+          1 === a ||
           this.nextSwfRouter?.opt?.power > this.oldNext?.opt?.power ||
           (this.nextSwfRouter?.opt?.power == this.oldNext?.opt?.power &&
             this.nextSwfRouter?.opt?.canSelfSet) ||
@@ -133,10 +147,10 @@
                   );
               }, this.delayTime + 10));
           }
-          return (
-            (this.oldNext = this.nextSwfRouter),
-            void (this.nextSwfRouter = null)
-          );
+          (this.oldNext = this.nextSwfRouter),
+            (this.nextSwfRouter = null),
+            "normal" == this.oldNext?.opt?.state && this.armIdle();
+          return;
         }
         if (1 != a && e + t < a && !i)
           return (
@@ -154,6 +168,25 @@
       }
     }
     playTime = null;
+    // 闲置动作：原来只在 nextSwf() 里排一次，动作演完回到 Stand 后就不会再排了，
+    // 表现就是"企鹅站着不动"。改成每次落回 normal 后重新排一次，形成常驻循环。
+    armIdle() {
+      (this.playTime && clearTimeout(this.playTime),
+        (this.playTime = setTimeout(() => {
+          this.playTime = null;
+          // 正在换片或已有排队动作就先让位，别打断喂食/洗澡这类主动作
+          if (this.changeIng || this.nextSwfRouter) return void this.armIdle();
+          // 气泡:玩耍 = 1:9（原来 3:7，气泡偏多、动作偏少）
+          if (o({ start: 0, end: 100 }) < 10) {
+            let t = {
+              tolkName: "smallTalk",
+              tolkActive: "speak",
+              event: "setState",
+            };
+            s(this.backFn) && this.backFn(t);
+          } else this.nextSwf(this.router.getRouter("play"));
+        }, 22500 + Math.trunc(2e3 * Math.random() * 15))));
+    }
     nextSwf(t, e, a) {
       if (
         (t &&
@@ -173,23 +206,7 @@
           "normal" != this.normalSwf() || t)
         )
           this.playTime && clearTimeout(this.playTime);
-        else {
-          let t = Math.trunc(2e3 * Math.random() * 15 + 22500);
-          (this.playTime && clearTimeout(this.playTime),
-            (this.playTime = setTimeout(() => {
-              if (o({ start: 0, end: 100 }) < 30) {
-                let t = {
-                  tolkName: "smallTalk",
-                  tolkActive: "speak",
-                  event: "setState",
-                };
-                s(this.backFn) && this.backFn(t);
-              } else {
-                let t = this.router.getRouter("play");
-                this.nextSwf(t);
-              }
-            }, t)));
-        }
+        else this.armIdle();
     }
     click() {
       try {
@@ -199,35 +216,19 @@
       }
     }
     stopPlay() {
-      try {
-        return (this.dom.StopPlay(), !0);
-      } catch (t) {
-        return t;
-      }
+      return ffStop(this.dom);
     }
     play() {
-      try {
-        return (this.dom.Play(), !0);
-      } catch (t) {
-        return t;
-      }
+      return ffPlay(this.dom);
     }
     isPlaying() {
-      try {
-        return this.dom.IsPlaying();
-      } catch (t) {
-        return t;
-      }
+      return ffIsPlaying(this.dom);
     }
     rewind() {
-      try {
-        return (this.dom.Rewind(), !0);
-      } catch (t) {
-        return t;
-      }
+      return ffGoto(this.dom, 1) || !0;
     }
     goToFrames(t) {
-      (t > this.state.frame && (t = this.state.frame), this.dom.GotoFrame(t));
+      (t > this.state.frame && (t = this.state.frame), ffGoto(this.dom, t));
     }
   }
   class a {
@@ -749,32 +750,16 @@
       this.dom = t || null;
     }
     isPlaying() {
-      try {
-        return this.dom.IsPlaying();
-      } catch (t) {
-        return null;
-      }
+      return ffIsPlaying(this.dom);
     }
     currentFrame() {
-      try {
-        return this.dom.CurrentFrame();
-      } catch (t) {
-        return null;
-      }
+      return ffCurrent(this.dom);
     }
     totalFrames() {
-      try {
-        return this.dom.TotalFrames();
-      } catch (t) {
-        return null;
-      }
+      return ffTotal(this.dom);
     }
     percentLoaded() {
-      try {
-        return this.dom.PercentLoaded();
-      } catch (t) {
-        return null;
-      }
+      return ffPercent(this.dom);
     }
     getState() {
       ((this.state = {
@@ -807,11 +792,13 @@
       var r,
         o = Date.now();
       let l = () => {
-        i()
-          ? this.clearAnimationFrames(e)
-          : ((s = Date.now()),
-            (r = s - o) > n && ((o = s - (r % n)), a && a()),
-            (this.AnimationFrames[e] = window.requestAnimationFrame(l)));
+        if (i()) return void this.clearAnimationFrames(e);
+        try {
+          (s = Date.now()),
+            (r = s - o) > n && ((o = s - (r % n)), a && a());
+        } catch (t) {}
+        // 重新注册必须放在 try/catch 之外：回调抛错不能把整条动画循环打死
+        this.AnimationFrames[e] = window.requestAnimationFrame(l);
       };
       l();
     }
@@ -877,6 +864,103 @@
         }
       }
       return a;
+    };
+  // ---- Ruffle 适配层 ----
+  // 这套代码原本跑在 Flash Player 的 <embed> 上，靠 TotalFrames/CurrentFrame/IsPlaying
+  // 这类旧版 JS API 驱动动作切换。Ruffle 只保留了 play/pause/isPlaying 等新 API，
+  // 这里补齐旧 API：优先直连 wasm 实例拿真实帧号，拿不到则用 metadata 的
+  // numFrames/frameRate 按播放时间推算，保证 lastTimeCut/nextFrames 等原版时序仍然成立。
+  const ffMap = new WeakMap(),
+    ffNow = () =>
+      "object" == typeof performance && performance.now
+        ? performance.now()
+        : Date.now(),
+    ffState = (t) => {
+      let e = ffMap.get(t);
+      return (
+        e ||
+          ((e = { last: ffNow(), acc: 0, probe: 0, fps: 0, total: 0 }),
+          ffMap.set(t, e)),
+        e
+      );
+    },
+    ffInstance = (t) => {
+      try {
+        let e = t && t.instance;
+        if (e && "function" == typeof e.current_frame) return e;
+      } catch (e) {}
+      return null;
+    },
+    ffIsPlaying = (t) => {
+      try {
+        return !!t.isPlaying;
+      } catch (e) {
+        return null;
+      }
+    },
+    ffReadMeta = (t) => {
+      let e = ffState(t),
+        a = ffNow();
+      if (!t) return e;
+      if (e.total && e.fps) return e;
+      if (a - e.probe < 300) return e;
+      e.probe = a;
+      try {
+        let a = t.ruffle && t.ruffle(1),
+          i = a && a.metadata;
+        i &&
+          i.numFrames &&
+          ((e.total = +i.numFrames || 0), (e.fps = +i.frameRate || 24));
+      } catch (e) {}
+      return e;
+    },
+    ffTotal = (t) => {
+      try {
+        let e = ffInstance(t);
+        if (e && "function" == typeof e.total_frames) return e.total_frames();
+      } catch (e) {}
+      let e = ffReadMeta(t);
+      return e.total || null;
+    },
+    ffCurrent = (t) => {
+      try {
+        let e = ffInstance(t);
+        if (e) return e.current_frame();
+      } catch (e) {}
+      let e = ffReadMeta(t),
+        a = ffNow();
+      (ffIsPlaying(t) && (e.acc += a - e.last), (e.last = a));
+      if (!e.total || !e.fps) return null;
+      let i = Math.floor((e.acc / 1e3) * e.fps) + 1;
+      return e.total ? ((i - 1) % e.total) + 1 : i;
+    },
+    ffPlay = (t) => {
+      try {
+        return (t && t.play && t.play(), !0);
+      } catch (e) {
+        return e;
+      }
+    },
+    ffStop = (t) => {
+      try {
+        return (t && t.pause && t.pause(), !0);
+      } catch (e) {
+        return e;
+      }
+    },
+    ffGoto = (t, e) => {
+      try {
+        let a = ffInstance(t);
+        if (a && "function" == typeof a.goto_frame) return (a.goto_frame(e), !0);
+      } catch (e) {}
+      return !1;
+    },
+    ffPercent = (t) => {
+      try {
+        return t && t.PercentLoaded ? t.PercentLoaded() : null;
+      } catch (e) {
+        return null;
+      }
     };
   window.swfPet = class {
     useData = ["id", "backFn", "goNormal"];
