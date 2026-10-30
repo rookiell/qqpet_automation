@@ -64,8 +64,9 @@
                     _lv = this.petInfo.maxInfo.level,
                     _st = _lv <= 4 ? "Egg" : _lv < 9 ? "Kid" : "Adult",
                     _n = "Egg" == _st ? 29 : 112;
-                  for (let _i = 1; _i <= _n; _i++)
-                    fetch(`${_bd}/${_sx}/${_st}/play/P${_i}.swf`).catch(
+                  for (let _md of ["happy", "prostrate"])
+                    for (let _i = 1; _i <= _n; _i++)
+                      fetch(`${_bd}/${_sx}/${_st}/${_md}/play/P${_i}.swf`).catch(
                       () => {},
                     );
                 } catch (e) {}

@@ -267,7 +267,7 @@
               : "Adult"));
       let a = !1;
       (this.oldAge != this.age &&
-        ("Adult" != this.age ? (this.state = "") : (this.state = "happy"),
+        ("Egg" == this.age ? (this.state = "") : (this.state = "happy"),
         this.oldAge && (a = !0),
         (this.oldAge = this.age)),
         this.oldAgeNum != this.ageNum &&
@@ -660,7 +660,9 @@
             }),
             ...a({
               playOption: { end: 112 },
-              normalOption: { opt: { isOverState: "normal" } },
+              happy: a({ playOption: { end: 112 } }),
+            prostrate: a({ playOption: { end: 112 } }),
+            normalOption: { opt: { isOverState: "normal" } },
             }),
           },
           Egg: {
@@ -709,7 +711,9 @@
             }),
             ...a({
               playOption: { end: 112 },
-              normalOption: { opt: { isOverState: "normal" } },
+              happy: a({ playOption: { end: 112 } }),
+            prostrate: a({ playOption: { end: 112 } }),
+            normalOption: { opt: { isOverState: "normal" } },
             }),
           },
           Egg: {
