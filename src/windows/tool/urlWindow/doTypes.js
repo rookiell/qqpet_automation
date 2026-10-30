@@ -22,10 +22,10 @@ document.querySelectorAll('*').forEach(el => {
   el.remove()
   }
 });`,
-readVideo:`
+  readVideo: `
 
 `,
-getText:`
+  getText: `
 function rebuildFullDOM() {
   // 创建新文档
   const newDoc = document.implementation.createHTMLDocument();
@@ -82,6 +82,6 @@ function rebuildFullDOM() {
 // 执行函数
 rebuildFullDOM();
 
-`
+`,
 };
 module.exports = doTypes;

@@ -1,105 +1,98 @@
-
-var $ISWEB = (function(){
-		
-		try{
-			var count = window.external.LOG_GetLogCount();
-			if(count == undefined){
-				return true;
-			}else{
-				var qt = window.external.MF_ExecuteCommand("GetClientInfo", null);
-				if(qt != undefined){
-					return true;
-				}
-			}
-			return false;
-		}catch(ex){
-			return true;
-		}
-		
+var $ISWEB = (function () {
+  try {
+    var count = window.external.LOG_GetLogCount();
+    if (count == undefined) {
+      return true;
+    } else {
+      var qt = window.external.MF_ExecuteCommand("GetClientInfo", null);
+      if (qt != undefined) {
+        return true;
+      }
+    }
+    return false;
+  } catch (ex) {
+    return true;
+  }
 })();
 
-function closeFrame(){
-	
-	if($ISWEB){
-		window.parent.PET.CloseMain();
-	}else{
-		window.close();
-	}
+function closeFrame() {
+  if ($ISWEB) {
+    window.parent.PET.CloseMain();
+  } else {
+    window.close();
+  }
 }
-function closeVip(){
-	
-	if($ISWEB){
-		window.parent.PET.closeVip();
-	}else{
-		window.external.api_onvip_close();
-	}
+function closeVip() {
+  if ($ISWEB) {
+    window.parent.PET.closeVip();
+  } else {
+    window.external.api_onvip_close();
+  }
 }
-function closeSub(){
-
-    if($ISWEB){
-		window.parent.PET.CloseSub();
-	}else{
-		window.close();
-	}
+function closeSub() {
+  if ($ISWEB) {
+    window.parent.PET.CloseSub();
+  } else {
+    window.close();
+  }
 }
-function closeMiddle(){
-    if($ISWEB){
-		window.parent.PET.CloseMid();
-	}else{
-		window.close();
-	}
+function closeMiddle() {
+  if ($ISWEB) {
+    window.parent.PET.CloseMid();
+  } else {
+    window.close();
+  }
 }
-function openIE(url){
-	if($ISWEB){
-		var _win = window.open(url);
-		if(_win == null || _win.closed){
-          alert('ÄúµÄä¯ÀÀÆ÷ÆôÓÃµ¯³ö´°¿Ú¹ýÂË¹¦ÄÜ£¡\n\nÇëÔÝÊ±ÏÈ¹Ø±Õ´Ë¹¦ÄÜ£¡');
-		}
-	}else{
-		location.href = "pet://$IE$["+url+"]";
-	}
+function openIE(url) {
+  if ($ISWEB) {
+    var _win = window.open(url);
+    if (_win == null || _win.closed) {
+      alert("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½Ë¹ï¿½ï¿½Ü£ï¿½\n\nï¿½ï¿½ï¿½ï¿½Ê±ï¿½È¹Ø±Õ´Ë¹ï¿½ï¿½Ü£ï¿½");
+    }
+  } else {
+    location.href = "pet://$IE$[" + url + "]";
+  }
 }
 
-function openVip(url){
-	url = url || 'http://pay.qq.com/app/service/public/openservice.shtml?serviceCode=PETVIP&serviceName=%E7%B2%89%E9%92%BB&serviceFee=10&aid=bjgm';
-	if($ISWEB){
-		window.parent.PET.OpenVip(url);
-	}else{
-		location.href = "pet://$VIP$["+url+"]";
-	}
+function openVip(url) {
+  url =
+    url ||
+    "http://pay.qq.com/app/service/public/openservice.shtml?serviceCode=PETVIP&serviceName=%E7%B2%89%E9%92%BB&serviceFee=10&aid=bjgm";
+  if ($ISWEB) {
+    window.parent.PET.OpenVip(url);
+  } else {
+    location.href = "pet://$VIP$[" + url + "]";
+  }
 }
 
-function openSub(url){
-
-	if($ISWEB){		
-		window.parent.PET.OpenSub(url);
-	}else{
-		location.href = "pet://$SUB$["+url+"]";
-	}
+function openSub(url) {
+  if ($ISWEB) {
+    window.parent.PET.OpenSub(url);
+  } else {
+    location.href = "pet://$SUB$[" + url + "]";
+  }
 }
 
-function openFrame(url){
-	
-	if($ISWEB){
-		window.parent.PET.OpenMain(url);
-	}else{
-		location.href = "pet://$MAIN$["+url+"]";
-	}
+function openFrame(url) {
+  if ($ISWEB) {
+    window.parent.PET.OpenMain(url);
+  } else {
+    location.href = "pet://$MAIN$[" + url + "]";
+  }
 }
 
-function openFlash(url){
-	if($ISWEB){
-		window.parent.PET.OpenFlashGame(url);
-	}else{
-		location.href="pet://$FLASHWEB$["+url+"]";
-	}
+function openFlash(url) {
+  if ($ISWEB) {
+    window.parent.PET.OpenFlashGame(url);
+  } else {
+    location.href = "pet://$FLASHWEB$[" + url + "]";
+  }
 }
 
-function openMiddle(url){
-	
-	if($ISWEB){
-		window.parent.PET.OpenMid(url);
-	}else{
-		location.href = "pet://$MIDDLE$["+url+"]";
-	}
+function openMiddle(url) {
+  if ($ISWEB) {
+    window.parent.PET.OpenMid(url);
+  } else {
+    location.href = "pet://$MIDDLE$[" + url + "]";
+  }
 }

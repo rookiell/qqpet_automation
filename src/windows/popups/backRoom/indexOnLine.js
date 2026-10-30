@@ -36,7 +36,7 @@ function setCookie(key, value, save) {
   try {
     cookieStore.set(
       "qqpet_" + encodeURIComponent(key),
-      encodeURIComponent(value)
+      encodeURIComponent(value),
     );
   } catch (e) {
     console.log("setCookie error", e);
@@ -76,5 +76,5 @@ function getCookie(key) {
 
 window.closeFrame = () => {
   console.log("closeFrame", "guanbi");
-  close_game && close_game()
+  close_game && close_game();
 };

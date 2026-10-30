@@ -92,7 +92,7 @@ function callDeepSeek(apiKey, messages) {
             reject(e);
           }
         });
-      }
+      },
     );
     req.on("error", reject);
     req.setTimeout(TIMEOUT_MS, () => {
@@ -116,7 +116,8 @@ class LLMService {
     const apiKey = getSys("llmApiKey");
     if (!apiKey || !getSys("llmEnabled")) return;
     if (!this._queues[tolkName]) this._queues[tolkName] = [];
-    if (this._queues[tolkName].length >= MAX_QUEUE || this._pending[tolkName]) return;
+    if (this._queues[tolkName].length >= MAX_QUEUE || this._pending[tolkName])
+      return;
     this._pending[tolkName] = true;
     const prompt = USER_PROMPTS[tolkName] || USER_PROMPTS.smallTalk;
     callDeepSeek(apiKey, [

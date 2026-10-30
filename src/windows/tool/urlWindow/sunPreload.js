@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // 主程序给html
   urlWindowSun_m_bus: (event) => ipcRenderer.on("urlWindowSun_m_bus_h", event),
   // html给主程序
-  urlWindowSun_h_bus: (event) => ipcRenderer.send("urlWindowSun_h_bus_m", event),
+  urlWindowSun_h_bus: (event) =>
+    ipcRenderer.send("urlWindowSun_h_bus_m", event),
   ...main_html,
   ...html_main,
 });

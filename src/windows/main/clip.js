@@ -67,13 +67,20 @@ module.exports = function (options) {
         } else {
           const currentSize = currentImage.getSize();
           const cachedSize = lastImage.getSize();
-          if (currentSize.width !== cachedSize.width || currentSize.height !== cachedSize.height) {
+          if (
+            currentSize.width !== cachedSize.width ||
+            currentSize.height !== cachedSize.height
+          ) {
             changed = true;
           } else {
             // Performance tradeoff: avoid full image serialization on every tick.
             // Same-sized images that collide after 16x16 downscaling may be missed.
             currentThumb = readThumbnail(currentImage);
-            if (!cachedThumb || !currentThumb || !cachedThumb.equals(currentThumb)) {
+            if (
+              !cachedThumb ||
+              !currentThumb ||
+              !cachedThumb.equals(currentThumb)
+            ) {
               changed = true;
             }
           }

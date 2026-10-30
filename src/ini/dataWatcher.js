@@ -47,7 +47,10 @@ function startDataWatcher() {
     if (pet.maxInfo) payload.maxInfo = pet.maxInfo;
     if (pet.activeOption) payload.activeOption = pet.activeOption;
 
-    if (typeof global.setPetInfo === "function" && Object.keys(payload).length) {
+    if (
+      typeof global.setPetInfo === "function" &&
+      Object.keys(payload).length
+    ) {
       global.setPetInfo(payload);
       // setPetInfo 会触发 Electron 自己的 $Store.setItem 回写文件，刷新 lastRaw
       // 以免下一次 watch 事件把这次的"回写"重新当作外部变更处理。
@@ -56,10 +59,14 @@ function startDataWatcher() {
   };
 
   try {
-    watcher = fs.watch(dir, { persistent: false }, (_eventType, changedName) => {
-      if (changedName && changedName !== fileName) return;
-      reload();
-    });
+    watcher = fs.watch(
+      dir,
+      { persistent: false },
+      (_eventType, changedName) => {
+        if (changedName && changedName !== fileName) return;
+        reload();
+      },
+    );
   } catch (_) {
     return;
   }

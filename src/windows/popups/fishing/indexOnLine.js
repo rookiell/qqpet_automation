@@ -36,7 +36,7 @@ function setCookie(key, value, save) {
   try {
     cookieStore.set(
       "qqpet_" + encodeURIComponent(key),
-      encodeURIComponent(value)
+      encodeURIComponent(value),
     );
   } catch (e) {
     console.log("setCookie error", e);
@@ -748,7 +748,7 @@ const getUpLoad = () => {
   console.log(
     "window?.selfeLoad",
     window?.selfeLoad,
-    typeof window.getPetInfoFromMain
+    typeof window.getPetInfoFromMain,
   );
   if (window?.selfeLoad) {
     console.log("ok");

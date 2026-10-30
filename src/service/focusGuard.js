@@ -84,10 +84,7 @@ class FocusGuard {
         if (
           awaySec > DEFAULTS.welcomeBackThresholdMin * 60 &&
           getSys("focusWelcomeBack") &&
-          this._canRemind(
-            "welcomeBack",
-            DEFAULTS.welcomeBackCooldownMin * 60
-          )
+          this._canRemind("welcomeBack", DEFAULTS.welcomeBackCooldownMin * 60)
         ) {
           this._fireReminder("welcomeBack", {
             awayMin: Math.floor(awaySec / 60),
