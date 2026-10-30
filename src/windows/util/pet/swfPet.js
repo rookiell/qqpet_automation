@@ -176,6 +176,8 @@
           this.playTime = null;
           // 正在换片或已有排队动作就先让位，别打断喂食/洗澡这类主动作
           if (this.changeIng || this.nextSwfRouter) return void this.armIdle();
+          // 生病/垂死/死亡(isSick 1/2/3)期间不自发玩耍，恢复后循环会重新放行
+          if (this.router?.isSick) return void this.armIdle();
           // 气泡:玩耍 = 1:9（原来 3:7，气泡偏多、动作偏少）
           if (o({ start: 0, end: 100 }) < 10) {
             let t = {
@@ -185,7 +187,7 @@
             };
             s(this.backFn) && this.backFn(t);
           } else this.nextSwf(this.router.getRouter("play"));
-        }, 22500 + Math.trunc(2e3 * Math.random() * 15))));
+        }, 10000 + Math.trunc(15000 * Math.random()))));
     }
     nextSwf(t, e, a) {
       if (
