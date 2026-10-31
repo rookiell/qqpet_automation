@@ -3,6 +3,7 @@
       821: (module) => {
         const _require = eval("require"),
           infoCard = _require("../infoCard/main.js"),
+          screenUtil = _require("../../util/screen.js"),
           control = _require("../control/main.js");
         class mainClass {
           constructor(e) {
@@ -14,7 +15,9 @@
           cleate(e) {
             let { nowPosition: t, msg: o } = e;
             this.msg = o;
-            let s = this;
+            let s = this,
+              // 面板挂在宠物左上方；宠物贴边时收敛回可视区域，避免整块跑到屏幕外
+              p = screenUtil.clampToScreen(t[0] - 95, t[1] - 290, 190, 290, t);
             ((this.width = 190),
               (this.height = 290),
               windowsMain
@@ -24,8 +27,8 @@
                   default: {
                     width: this.width,
                     height: this.height,
-                    x: Math.trunc(t[0] - 95),
-                    y: Math.trunc(t[1] - 290),
+                    x: p[0],
+                    y: p[1],
                     notChangeSize: !0,
                   },
                   created(e) {

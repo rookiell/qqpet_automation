@@ -31,7 +31,12 @@
       </div>
     </div>
   </div>
-  <div class="activeMenu w100 h100 fjc" v-show="activeMenu">
+  <div
+    class="activeMenu w100 h100 fjc"
+    :class="{ menuUp: menuPos && menuPos.up }"
+    :style="activeMenuStyle"
+    v-show="activeMenu"
+  >
     <div class="head_hover_cover"></div>
     <div
       class="menu h100 por"
@@ -79,12 +84,13 @@
       </div>
     </div>
   </div>
-  <div class="doActive fjc" v-show="doActive">
+  <div class="doActive fjc" :style="doActiveStyle" v-show="doActive">
     <div
       class="active fcC"
       cando
       v-if="doActiveMenu"
       :class="[doActiveMenu.class || '']"
+      :style="activePanelStyle"
     >
       <div class="d_head fcc" cando>
         <img class="d_h_img" cando :src="doActiveMenu.icon" alt="" />
@@ -101,10 +107,7 @@
         <div
           class="tipMain fccC"
           cando
-          :style="{
-          left:tipMainPosition[0] + 15 + 'px',
-          top:tipMainPosition[1] + 15 +'px',
-        }"
+          :style="tipMainStyle"
         >
           <div class="t_m_head fc w100" cando>
             <div
@@ -181,10 +184,7 @@
               <div
                 class="c_m_a_tip fcC fs12"
                 cando
-                :style="{
-                left:mousePosition[0] + 15 + 'px',
-                top:mousePosition[1] + 15 +'px',
-              }"
+                :style="goodTipStyle()"
               >
                 <div class="toe" cando>{{item.name}}</div>
                 <div

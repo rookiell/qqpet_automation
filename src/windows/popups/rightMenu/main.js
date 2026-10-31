@@ -7,6 +7,7 @@
           control = _require("../control/main.js"),
           setup = _require("../setup/main.js"),
           smallGame = _require("../smallGame/main.js"),
+          screenUtil = _require("../../util/screen.js"),
           store = _require("../store/main.js");
         class mainClass {
           constructor(e) {
@@ -22,6 +23,15 @@
             ];
             "followMain" == this.positionType &&
               ((s[0] += this.width / 2 / 2), (s[1] += 80));
+            // 宠物贴着屏幕边缘时，菜单会有一列落在屏幕外，这里收敛回可视区域
+            // 注意：创建窗口时 window.js 会给未声明 notChangeSize 的窗口各加 10px，按实际尺寸算
+            s = screenUtil.clampToScreen(
+              s[0],
+              s[1],
+              this.width + 10,
+              this.height + 10,
+              t,
+            );
             let n = this;
             windowsMain
               .open({

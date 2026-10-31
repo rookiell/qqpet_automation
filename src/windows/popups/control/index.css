@@ -58,6 +58,22 @@
   padding-top: 40px;
   position: relative;
 }
+/* 宠物贴着屏幕底部时，下方没有展开二级菜单的空间，
+   改为向上展开（否则会被窗口底边裁掉，菜单项点不到）。 */
+.activeMenu.menuUp .m_children {
+  top: auto;
+  bottom: var(--iconBoxSize);
+}
+.activeMenu.menuUp .m_h_name {
+  top: auto;
+  bottom: -2px;
+  transform: translateY(100%) translateX(-50%);
+}
+.activeMenu.menuUp .smallLine {
+  bottom: auto;
+  top: -2px;
+  transform: rotate(180deg);
+}
 .head_hover_cover {
   position: absolute;
   top: 0;
@@ -329,6 +345,9 @@
   border-radius: 10px;
   padding: 5px;
   border: 1px solid #774a1d;
+  max-width: 220px;
+  /* 提示不接收鼠标，否则鼠标一进入提示框 hover 就断了，提示会闪 */
+  pointer-events: none;
 }
 .c_m_a_icon {
   background-color: #fbb100;

@@ -2,6 +2,7 @@
   var __webpack_modules__ = {
       361: (module) => {
         const _require = eval("require"),
+          screenUtil = _require("../../util/screen.js"),
           path = _require("path");
         class mainClass {
           constructor(t) {
@@ -12,18 +13,30 @@
               (this.closeTimeOut = null));
           }
           nowPosition = [0, 0];
+          // 气泡默认挂在宠物上方；宠物贴屏幕顶部时翻到下方，
+          // 再统一收敛进可视区域，避免气泡跑到屏幕外看不见。
+          calcPosition(position, maxSize) {
+            let area = screenUtil.getWorkArea(position),
+              x = position[0] + maxSize[0] / 2 - this.width / 2,
+              y = position[1] - this.height - 30;
+            if (y < area.y) y = position[1] + maxSize[1] + 30;
+            // 窗口实际尺寸比计算值大 10px（window.js 创建时的默认扩张），按实际尺寸收敛
+            return screenUtil.clampToScreen(
+              x,
+              y,
+              this.width + 10,
+              this.height + 10,
+              position,
+            );
+          }
           cleate(t) {
             ((this.nowPosition = t.position || [0, 0]),
               (this.maxSize = t.maxSize || [0, 0]),
               (this.width = 229),
               (this.height = 179));
             let e = this,
-              s = [0, 0];
-            ((s[0] = Math.trunc(
-              t.position[0] + t.maxSize[0] / 2 - this.width / 2,
-            )),
-              (s[1] = Math.trunc(t.position[1] - this.height - 30)),
-              (this.msgData = t.data),
+              s = this.calcPosition(t.position, t.maxSize);
+            ((this.msgData = t.data),
               (this.otherMsgData = t.otherOpt || null),
               windowsMain
                 .open({
@@ -130,11 +143,7 @@
               (this.maxSize = t.maxSize || [0, 0]),
               e && (this.width = e),
               s && (this.height = s));
-            let i = [0, 0];
-            ((i[0] = Math.trunc(
-              t.position[0] + t.maxSize[0] / 2 - this.width / 2,
-            )),
-              (i[1] = Math.trunc(t.position[1] - this.height - 30)));
+            let i = this.calcPosition(t.position, t.maxSize);
             let o = {
               x: i[0] || 1,
               y: i[1] || 1,

@@ -4,6 +4,7 @@
         const _require = eval("require"),
           fishing = _require("../fishing/main"),
           backRoom = _require("../backRoom/main"),
+          screenUtil = _require("../../util/screen.js"),
           { pinkDiamondLevel } = _require("../../util/pet/level");
         class mainClass {
           constructor(e) {
@@ -15,13 +16,130 @@
               (this.positionSave = null));
           }
           addTop = 5;
+          // 面板坐标：默认水平居中于宠物、顶边贴在宠物脚下。
+          // 下方放不下时贴着工作区底边往上收（保持"从下方展开"的方向），
+          // 最后统一钳制进可视区域。
+          // 注意：不要翻到宠物上方——1100x505 的大面板翻上去会挡在屏幕中上部，
+          // 顶部的菜单栏看起来就像"整块面板跑到屏幕上面去了"。
+          _calcLog(position, maxSize, area, out) {
+            try {
+              require("fs").appendFileSync(
+                "/tmp/qqpet-control-pos.log",
+                JSON.stringify({
+                  t: new Date().toISOString(),
+                  position,
+                  maxSize,
+                  size: [this.width, this.height],
+                  area,
+                  out,
+                  bounds: this.window ? this.window.getBounds() : null,
+                }) + "\n",
+              );
+            } catch (e) {}
+          }
+          calcPosition(position, maxSize) {
+            const area = screenUtil.getWorkArea(position);
+            // 宠物坐标可能落在屏幕外（"出门/隐藏"时的过渡坐标），
+            // 按这种坐标算，面板会被钳制到工作区左上角，且之后可能不再更新。
+            // 检测到异常坐标就直接退回"工作区水平居中、贴底"。
+            const outside =
+              !Array.isArray(position) ||
+              position.length < 2 ||
+              !Number.isFinite(position[0]) ||
+              !Number.isFinite(position[1]) ||
+              position[0] < area.x - 1 ||
+              position[1] < area.y - 1 ||
+              position[0] > area.x + area.width ||
+              position[1] > area.y + area.height;
+            let out;
+            if (outside) {
+              out = [
+                Math.round(area.x + (area.width - this.width) / 2),
+                Math.round(area.y + area.height - this.height),
+              ];
+            } else {
+              let x = position[0] + maxSize[0] / 2 - this.width / 2,
+                y = position[1] + maxSize[1] - this.addTop;
+              if (y + this.height > area.y + area.height) {
+                y = area.y + area.height - this.height;
+              }
+              out = screenUtil.clampToScreen(
+                x,
+                y,
+                this.width,
+                this.height,
+                position,
+              );
+            }
+            this._calcLog(position, maxSize, area, out);
+            return out;
+          }
+          // 把三个菜单按钮在窗口内的坐标发给渲染层。
+          // 面板被钳制到屏幕边角后，如果按钮还按"面板正上方居中"排布，
+          // 就会离宠物很远（宠物在右下角时会偏到屏幕中部）。
+          // 这里直接算出按钮应该出现在屏幕上的位置（宠物脚下、水平居中于宠物），
+          // 再换算成窗口内坐标，渲染层绝对定位过去即可。
+          // 同时判断下方够不够展开二级菜单，不够就让它向上展开，避免被屏幕底边裁掉。
+          _sendMenuOffset(position, maxSize, panelPos) {
+            try {
+              if (!this.window || this.window.isDestroyed()) return;
+              if (!Array.isArray(position) || !Array.isArray(panelPos)) return;
+              const area = screenUtil.getWorkArea(position),
+                ROW_W = 170, // 3 x 50 图标 + 2 x 10 间距
+                ROW_H = 50,
+                DROP_H = 220; // 二级菜单展开所需高度（50 偏移 + 3 项 x 54）
+              // 目标屏幕坐标：水平居中于宠物，垂直贴在宠物脚下
+              const petCenterX = position[0] + maxSize[0] / 2,
+                petBottom = position[1] + maxSize[1] - this.addTop;
+              let left = Math.round(petCenterX - panelPos[0] - ROW_W / 2),
+                top = Math.round(petBottom - panelPos[1]);
+              left = Math.max(0, Math.min(left, this.width - ROW_W));
+              top = Math.max(0, Math.min(top, this.height - ROW_H));
+              // 按钮下方还剩多少可视空间，够不够展开二级菜单
+              const roomBelow = area.y + area.height - (panelPos[1] + top + ROW_H);
+              // 三级活动面板（点击二级菜单项后弹出的 350x150 面板）同理：
+              // 原来它按窗口居中排布，面板被钳到边角后就跑到窗口正中，
+              // 离宠物很远。这里也锚定到"宠物脚下、水平居中于宠物"。
+              const ACT_W = 350, ACT_H = 150;
+              let activeLeft = Math.round(petCenterX - panelPos[0] - ACT_W / 2),
+                activeTop = Math.round(petBottom - panelPos[1]);
+              activeLeft = Math.max(0, Math.min(activeLeft, this.width - ACT_W));
+              activeTop = Math.max(0, Math.min(activeTop, this.height - ACT_H));
+              const payload = {
+                left,
+                top,
+                up: roomBelow < DROP_H,
+                activeLeft,
+                activeTop,
+              };
+              try {
+                require("fs").appendFileSync(
+                  "/tmp/qqpet-control-pos.log",
+                  JSON.stringify({
+                    t: new Date().toISOString(),
+                    tag: "menu",
+                    position,
+                    maxSize,
+                    panelPos,
+                    petBottom,
+                    roomBelow,
+                    payload,
+                  }) + "\n",
+                );
+              } catch (err) {}
+              this.window.webContents.send("control_bus-html_menuOffset", payload);
+            } catch (e) {}
+          }
           cleate(e, t) {
             this.isCleate = !0;
-            let o = [0, 0];
-            ((o[0] = e.position[0] + e.maxSize[0] / 2),
-              (o[1] = e.position[1] + e.maxSize[1] - this.addTop),
-              (this.width = 1100),
-              (this.height = 500 + this.addTop));
+            ((this.width = 1100), (this.height = 500 + this.addTop));
+            let o = this.calcPosition(e.position, e.maxSize);
+            // 首次创建时窗口还没就绪，先记住上下文，等 onshow 后再下发按钮坐标
+            this._menuCtx = {
+              position: e.position,
+              maxSize: e.maxSize,
+              panelPos: o,
+            };
             let n = this;
             ((this.state = "hide"),
               windowsMain
@@ -32,7 +150,7 @@
                   default: {
                     width: this.width,
                     height: this.height,
-                    x: o[0] - this.width / 2,
+                    x: o[0],
                     y: o[1],
                     show: !1,
                     notChangeSize: !0,
@@ -425,7 +543,14 @@
                       (console.log("使用储存位置 :>> "),
                       this.window.setBounds(this.positionSave),
                       (this.positionSave = null)),
-                    this.init());
+                    this.init(),
+                    this._menuCtx &&
+                      (this._sendMenuOffset(
+                        this._menuCtx.position,
+                        this._menuCtx.maxSize,
+                        this._menuCtx.panelPos,
+                      ),
+                      (this._menuCtx = null)));
                 })
                 .catch((e) => {
                   console.log(e);
@@ -435,27 +560,40 @@
             this.show = !0;
           }
           setPosition(e) {
-            let t = [0, 0];
-            ((t[0] = e.position[0] + e.maxSize[0] / 2),
-              (t[1] = e.position[1] + e.maxSize[1] - this.addTop));
+            let t = this.calcPosition(e.position, e.maxSize);
             let o = {
-              x: +t[0] - this.width / 2,
+              x: +t[0],
               y: +t[1],
               height: this.height,
               width: this.width,
             };
             this.window
-              ? this.window.setBounds(o)
+              ? (this.window.setBounds(o),
+                this._sendMenuOffset(e.position, e.maxSize, t))
               : (console.log("没有window储存位置 :>> "),
                 (this.positionSave = o));
+          }
+          // 打开面板前，用宠物当前实时位置重算一次，避免面板停在过期的坐标上
+          // （比如宠物"出门/隐藏"时算出的屏幕外坐标，之后宠物回来但没再触发移动）。
+          _resyncPosition() {
+            try {
+              const mainWin = _require("../../main/main.js"),
+                p = mainWin?.nowPosition;
+              if (Array.isArray(p) && p.length >= 2)
+                this.setPosition({
+                  position: p,
+                  maxSize: mainWin?.maxSize || [180, 180],
+                });
+            } catch (e) {}
           }
           changeState(e = {}) {
             this.isReady &&
               ("hide" != e.type &&
-                setTimeout(() => {
-                  (this.doShow("menu" == e.type),
-                    this.window && this.window.focus());
-                }, 0),
+                (this._resyncPosition(),
+                  setTimeout(() => {
+                    (this.doShow("menu" == e.type),
+                      this.window && this.window.focus());
+                  }, 0)),
               this.state != e.type &&
                 ((this.state = e.type),
                 this.window &&

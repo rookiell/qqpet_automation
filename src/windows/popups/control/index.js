@@ -59,11 +59,68 @@
         winShow: !1,
         winShowText: "",
         winType: "",
+        // 三个菜单按钮在窗口内的坐标（主进程下发）：
+        // { left, top, up } —— up 表示下方空间不够，二级菜单要向上展开
+        menuPos: null,
+        // hover 商品/课程时那条浮动提示的实测尺寸（内容长度不固定，量一次再用）
+        goodTipSize: null,
       }),
-      computed: {},
+      computed: {
+        activeMenuStyle() {
+          const p = this.menuPos;
+          // 还没收到主进程坐标时，保持原来的"整窗居中"排布
+          if (!p) return { justifyContent: "center" };
+          return {
+            position: "absolute",
+            left: p.left + "px",
+            top: p.top + "px",
+            width: "auto",
+            height: "auto",
+            paddingTop: "0px",
+            display: "flex",
+            justifyContent: "flex-start",
+          };
+        },
+        // 三级活动面板（点二级菜单后弹出的 350x150 面板）原来靠 #appMain 的
+        // flex 居中排布，面板被钳到屏幕边角后就停在窗口正中（也就是旧按钮的位置）。
+        // 这里把它也绝对定位到宠物脚下。先把 .doActive 拉平成铺满窗口的定位容器，
+        // 保证下面 .active 的 left/top 就是窗口坐标（不受 .doActive 的 top:5px 影响）。
+        doActiveStyle() {
+          const p = this.menuPos;
+          if (!p || null == p.activeLeft) return {};
+          return {
+            position: "absolute",
+            left: "0px",
+            top: "0px",
+            width: "100%",
+            height: "100%",
+          };
+        },
+        activePanelStyle() {
+          const p = this.menuPos;
+          if (!p || null == p.activeLeft) return {};
+          return {
+            position: "absolute",
+            left: p.activeLeft + "px",
+            top: p.activeTop + "px",
+          };
+        },
+        // 三级面板里的确认框（"你要学习语文吗"这类，300x140）
+        // 原先固定在鼠标右下 15px，面板贴到窗口右下角时会整体超出窗口被裁掉。
+        tipMainStyle() {
+          const p = this.tipMainPosition || [0, 0];
+          return Object.assign(
+            { position: "fixed" },
+            this.tipPos(p[0], p[1], 300, 140),
+          );
+        },
+      },
       created() {},
       mounted() {
         (this.doMousePenetrate(),
+          window.electronAPI.control_ToHtml_menuOffset((e, t) => {
+            this.menuPos = t;
+          }),
           window.electronAPI.control_ToHtml((e, t) => {
             "load" == t.type &&
               ((this.paddingTopMain = t.paddingTopMain), seeApp());
@@ -175,6 +232,41 @@
           t({ event: "mounted" }));
       },
       methods: {
+        // 浮动提示的落点：默认贴鼠标右下 15px；
+        // 右边/下边放不下就翻到鼠标左侧/上方，最后再钳进窗口，避免被窗口裁掉。
+        tipPos(mx, my, w, h) {
+          const winW = window.innerWidth || 1100,
+            winH = window.innerHeight || 505,
+            PAD = 8,
+            GAP = 15;
+          let x = mx + GAP,
+            y = my + GAP;
+          if (x + w > winW - PAD) x = mx - GAP - w;
+          if (y + h > winH - PAD) y = my - GAP - h;
+          x = Math.max(PAD, Math.min(x, winW - w - PAD));
+          y = Math.max(PAD, Math.min(y, winH - h - PAD));
+          return { left: Math.round(x) + "px", top: Math.round(y) + "px" };
+        },
+        // hover 商品/课程时的浮动提示（宽度随内容变化，先按保守值估，量到后再修正）
+        goodTipStyle() {
+          const p = this.mousePosition || [0, 0],
+            sz = this.goodTipSize || { w: 180, h: 70 };
+          return this.tipPos(p[0], p[1], sz.w, sz.h);
+        },
+        // 提示是 CSS :hover 控制的显隐，只有鼠标移到格子上才会显示，
+        // 所以每次鼠标移动后量一次当前可见的那条，拿到真实宽高。
+        measureGoodTip() {
+          let el = null;
+          document.querySelectorAll(".c_m_a_tip").forEach((n) => {
+            if (!el && n.offsetWidth && n.offsetHeight) el = n;
+          });
+          if (!el) return;
+          const r = el.getBoundingClientRect(),
+            w = Math.ceil(r.width),
+            h = Math.ceil(r.height),
+            old = this.goodTipSize;
+          old && old.w === w && old.h === h || (this.goodTipSize = { w, h });
+        },
         changeChildren(e) {
           this.activeUseData?.i != e &&
             ((this.activeUseData = { ...this.doActiveMenu.children[e], i: e }),
@@ -287,7 +379,8 @@
                 window.electronAPI.control_ToMain_eventMouse({
                   canDoType: this.isPenetrate,
                 })),
-                (this.mousePosition = [e.clientX, e.clientY]));
+                (this.mousePosition = [e.clientX, e.clientY]),
+                this.measureGoodTip());
             },
           }).init()),
             document.addEventListener("mouseleave", () => {

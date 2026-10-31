@@ -13,6 +13,8 @@
         ipcRenderer.send("control_bus-html_backUseActiveData", e),
       control_ToHtml_backDetermine: (e) =>
         ipcRenderer.on("control_bus-html_backDetermine", e),
+      control_ToHtml_menuOffset: (e) =>
+        ipcRenderer.on("control_bus-html_menuOffset", e),
     },
     html_main = {
       control_ToMain_eventMouse: (e) =>
