@@ -35,39 +35,6 @@
               (this.loadTime = { seeControlTime: null }));
           }
           reLoad = !0;
-          // 眼睛跟随鼠标：SWF 自己会读 _xmouse/_ymouse 转眼睛，但宠物窗口只有
-          // 宠物那么大，鼠标一移出去 Ruffle 就收不到指针事件了。这里由主进程
-          // 以 50ms 轮询全局光标，把「相对窗口内容区」的坐标发给渲染层，
-          // 渲染层再合成 pointermove 喂给 Ruffle。
-          cursorTimer = null;
-          cursorLast = null;
-          cursorSentAt = 0;
-          startCursorWatch(t) {
-            this.stopCursorWatch();
-            this.cursorTimer = setInterval(() => {
-              try {
-                if (!t || t.isDestroyed() || !t.isVisible()) return;
-                let p = screen.getCursorScreenPoint(),
-                  b = t.getContentBounds(),
-                  x = Math.round(p.x - b.x),
-                  y = Math.round(p.y - b.y),
-                  l = this.cursorLast,
-                  moved =
-                    !l || Math.abs(x - l[0]) > 1 || Math.abs(y - l[1]) > 1,
-                  now = Date.now();
-                // 坐标没变也每 400ms 补发一次：换片会重建 Ruffle 实例，
-                // 新实例不知道上一次的鼠标位置，靠补发立刻接上
-                if (!moved && now - this.cursorSentAt < 400) return;
-                ((this.cursorLast = [x, y]), (this.cursorSentAt = now));
-                t.webContents.send("main_bus-html_cursor", { x: x, y: y });
-              } catch (e) {}
-            }, 50);
-          }
-          stopCursorWatch() {
-            (this.cursorTimer &&
-              (clearInterval(this.cursorTimer), (this.cursorTimer = null)),
-              (this.cursorLast = null));
-          }
           cleate(e) {
             let { web: t, defaultPetInfo: o } = e;
             ((this.maxSize = [180, 180]),
@@ -95,7 +62,7 @@
                   },
                   created(e) {
                     let { vm: t, preloads: a, getinfo: s, wsMethods: l } = e;
-                    (n.startCursorWatch(t), (n.nowPosition = t.getPosition()));
+                    n.nowPosition = t.getPosition();
                     let c = {
                       food: "eat",
                       commodity: "clean",
@@ -1078,7 +1045,7 @@
                     (console.log("onhide ", this.name), (n.show = !1));
                   },
                   onclose() {
-                    (n.stopCursorWatch(), console.log("onclose ", this.name));
+                    console.log("onclose ", this.name);
                   },
                 })
                 .then((e) => {

@@ -42,7 +42,6 @@
         this.initPet(),
         this.doMove(),
         this.bindWheel(),
-        this.bindCursor(),
         this.getNowPosition(),
         window.electronAPI.main_ToHtml((t, e) => {
           if ("load" == e.type) {
@@ -165,46 +164,6 @@
           next: t,
           maxSize: [...this.maxSize],
           notChangeSize: e.changeSize || this.notChangeSize || !1,
-        });
-      },
-      // 眼睛跟随鼠标。
-      //
-      // SWF 本身是带这套逻辑的：Stand.swf 里有 followEyes / _updateFace /
-      // getMousePoint，读 _xmouse/_ymouse 决定眼珠朝哪看。但两点让它失效了：
-      //   ① app.html 给 ruffle-player 上了 pointer-events:none（为了让 #move 接拖拽），
-      //      Ruffle 收不到真实指针事件，_xmouse 永远是默认值；
-      //   ② 宠物窗口只有宠物那么大，鼠标一出窗口就更没有事件了。
-      // 所以由主进程轮询全局光标（见 main.js 的 startCursorWatch），这里把坐标
-      // 合成一个 pointermove 派发给 Ruffle。
-      //
-      // 实测（无头 Electron + 真实 Ruffle + 真实 Stand.swf，比对逐帧像素）：
-      //   派发到 canvas → 画面差 4188 像素；派发到 container/player → 1063/1434，
-      //   只是眨眼噪声（基线 847）。也就是只有 canvas 上的监听是真的在收，
-      //   container 上那个只负责长按/右键菜单。
-      // 坐标超出 canvas 范围同样有效（±1500 实测差 7113），所以鼠标离宠物很远
-      // 时眼睛也会朝那个方向看，和原版一致。
-      bindCursor() {
-        window.electronAPI.main_ToHtml_cursor((t, e) => {
-          let n = document.getElementById("pet"),
-            o = n && n.shadowRoot,
-            i = o && o.querySelector("canvas");
-          if (!i) return;
-          i.dispatchEvent(
-            new PointerEvent("pointermove", {
-              bubbles: !0,
-              cancelable: !0,
-              composed: !0,
-              clientX: e.x,
-              clientY: e.y,
-              screenX: e.x,
-              screenY: e.y,
-              pointerId: 1,
-              pointerType: "mouse",
-              isPrimary: !0,
-              button: -1,
-              buttons: 0,
-            }),
-          );
         });
       },
       // 滚轮 / 触控板双指滑动安抚宠物。

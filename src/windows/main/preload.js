@@ -10,8 +10,6 @@
       main_ToHtml_active: (e) => ipcRenderer.on("main_bus-html_active", e),
       main_m_nextActive: (e) => ipcRenderer.on("main_m_nextActive_h", e),
       main_m_setFloat: (e) => ipcRenderer.on("main_m_setFloat_h", e),
-      // 全局光标位置（眼睛跟随鼠标用）
-      main_ToHtml_cursor: (e) => ipcRenderer.on("main_bus-html_cursor", e),
     },
     html_main = {
       html_ToMain_move: (e) => ipcRenderer.send("html_bus-main_move", e),
