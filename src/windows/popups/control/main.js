@@ -87,7 +87,12 @@
               const area = screenUtil.getWorkArea(position),
                 ROW_W = 170, // 3 x 50 图标 + 2 x 10 间距
                 ROW_H = 50,
-                DROP_H = 220; // 二级菜单展开所需高度（50 偏移 + 3 项 x 54）
+                // 二级菜单向下展开的真实高度：3 项 x (height 30 + padding 12*2) = 162。
+                // 注意 .m_children 的 top 已经是 var(--iconBoxSize)=50，也就是从按钮
+                // **底边**开始算，不能再把按钮自身高度加进来——之前写 220 是按
+                // 「50 偏移 + 3 项 x 54」估的，比实际多 58px，导致 roomBelow 在
+                // 162~220 之间时明明放得下却上翻。162 是真实 CSS 下量出来的。
+                DROP_H = 162;
               // 目标屏幕坐标：水平居中于宠物，垂直贴在宠物脚下
               const petCenterX = position[0] + maxSize[0] / 2,
                 petBottom = position[1] + maxSize[1] - this.addTop;
@@ -95,8 +100,14 @@
                 top = Math.round(petBottom - panelPos[1]);
               left = Math.max(0, Math.min(left, this.width - ROW_W));
               top = Math.max(0, Math.min(top, this.height - ROW_H));
-              // 按钮下方还剩多少可视空间，够不够展开二级菜单
-              const roomBelow = area.y + area.height - (panelPos[1] + top + ROW_H);
+              // 按钮下方还剩多少能真正摆下二级菜单的空间。
+              // 二级菜单是在窗口内渲染的，超出窗口的部分会被窗口裁掉，
+              // 所以真正的上限是「到窗口底边的距离」；再与「到屏幕工作区底边」
+              // 取小值兜底（正常窗口不会越出工作区，两者相等）。
+              const roomBelow = Math.min(
+                this.height - (top + ROW_H),
+                area.y + area.height - (panelPos[1] + top + ROW_H),
+              );
               // 三级活动面板（点击二级菜单项后弹出的 350x150 面板）同理：
               // 原来它按窗口居中排布，面板被钳到边角后就跑到窗口正中，
               // 离宠物很远。这里也锚定到"宠物脚下、水平居中于宠物"。
