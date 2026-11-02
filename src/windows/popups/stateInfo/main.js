@@ -71,26 +71,8 @@
                           t.webContents.send("stateInfo_bus-html", {
                             data: (() => {
                               try {
-                                let d = getPetInfo(),
-                                  c = 0,
-                                  n = Date.now();
-                                for (let g of getCache("sign", "gift") || [])
-                                  if (g && 0 == g.isTake && n >= +g.time) {
-                                    c = 1;
-                                    break;
-                                  }
-                                if (!c) {
-                                  let o =
-                                    +getPetInfoOne("onlineDataTime", "info") ||
-                                    0;
-                                  for (let g of getCache("online", "gift") ||
-                                    [])
-                                    if (g && 0 == g.isTake && o > +g.time) {
-                                      c = 1;
-                                      break;
-                                    }
-                                }
-                                d.claimable = c;
+                                let d = getPetInfo();
+                                d.claimable = s.calcClaimable();
                                 return d;
                               } catch (e) {
                                 return getPetInfo();
@@ -198,28 +180,8 @@
                               type: "info",
                               data: (() => {
                                 try {
-                                  let d = getPetInfo(),
-                                    c = 0,
-                                    n = Date.now();
-                                  for (let g of getCache("sign", "gift") || [])
-                                    if (g && 0 == g.isTake && n >= +g.time) {
-                                      c = 1;
-                                      break;
-                                    }
-                                  if (!c) {
-                                    let o =
-                                      +getPetInfoOne(
-                                        "onlineDataTime",
-                                        "info",
-                                      ) || 0;
-                                    for (let g of getCache("online", "gift") ||
-                                      [])
-                                      if (g && 0 == g.isTake && o > +g.time) {
-                                        c = 1;
-                                        break;
-                                      }
-                                  }
-                                  d.claimable = c;
+                                  let d = getPetInfo();
+                                  d.claimable = s.calcClaimable();
                                   return d;
                                 } catch (e) {
                                   return getPetInfo();
@@ -253,6 +215,47 @@
                 .catch((e) => {
                   console.log(e);
                 }));
+          }
+          // 签到 / 在线礼物有没有可领的（1=有，0=没有）。
+          //
+          // 关键：礼物列表是「懒生成」的。Goods.getGiftData 只在
+          // getConsumablesPage({ value: "task" }) 里被调用 —— 也就是打开任务栏那一刻，
+          // 它才会把当天的 12 个签到礼 / 8 个在线礼写进缓存。
+          // 于是下面两种情况缓存是「不该被信任」的：
+          //   ① 进程第一次跑，缓存还是 pet.js 里的空数组 { sign: [], online: [] }；
+          //   ② 跨过 06:00 进入新的一天，缓存里还是昨天的列表（isTake 全是 2=已领）。
+          // 这时直接扫缓存永远扫不到可领取项，信息栏的「领取」按钮就是灰的，
+          // 而打开任务栏后它自己重新生成了列表，就又变正常 —— 表现为「时好时坏」。
+          // 所以这里先自己把数据补齐，再判断，不再依赖「用户先点过任务栏」。
+          calcClaimable() {
+            try {
+              let g = petControl && petControl.Goods;
+              if (g && "function" == typeof g.getGiftData) {
+                // 数量必须和任务栏用的保持一致（签到 12、在线 8），
+                // 否则 getGiftData 会认为长度不符而整份重新生成。
+                try {
+                  g.getGiftData("sign", 12);
+                } catch (e) {}
+                try {
+                  g.getGiftData("online", 8);
+                } catch (e) {}
+              }
+            } catch (e) {}
+            let c = 0,
+              n = Date.now(),
+              o = +getPetInfoOne("onlineDataTime", "info") || 0;
+            for (let g of getCache("sign", "gift") || [])
+              if (g && 0 == g.isTake && n >= +g.time) {
+                c = 1;
+                break;
+              }
+            if (!c)
+              for (let g of getCache("online", "gift") || [])
+                if (g && 0 == g.isTake && o > +g.time) {
+                  c = 1;
+                  break;
+                }
+            return c;
           }
           init() {
             this.show = !0;
