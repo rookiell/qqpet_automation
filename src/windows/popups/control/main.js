@@ -87,12 +87,17 @@
               const area = screenUtil.getWorkArea(position),
                 ROW_W = 170, // 3 x 50 图标 + 2 x 10 间距
                 ROW_H = 50,
-                // 二级菜单向下展开的真实高度：3 项 x (height 30 + padding 12*2) = 162。
-                // 注意 .m_children 的 top 已经是 var(--iconBoxSize)=50，也就是从按钮
-                // **底边**开始算，不能再把按钮自身高度加进来——之前写 220 是按
-                // 「50 偏移 + 3 项 x 54」估的，比实际多 58px，导致 roomBelow 在
-                // 162~220 之间时明明放得下却上翻。162 是真实 CSS 下量出来的。
-                DROP_H = 162;
+                // 二级菜单向下展开的真实高度：3 项 x 30 = 90。
+                // .m_c_once 写的是 height:30px + padding:12px 0，看着像 54/项，
+                // 但 lib/ant-design/antd.css 的 reset 里有 *{box-sizing:border-box}，
+                // padding 被算进 height 里，实测 offsetHeight 就是 30，3 项合计 90。
+                // （实测方式：加载 antd.css + css/index.css + popups/control/index.css，
+                //  复刻菜单 DOM，量 .m_children 内 3 个 .m_c_once 的 top/bottom = 50→140。）
+                // 之前按 content-box 估成 162，多算 72px，导致 roomBelow 在 90~162
+                // 之间时明明放得下却上翻。
+                // .m_children 的 top 已经是 var(--iconBoxSize)=50，从按钮**底边**起算，
+                // 所以 roomBelow 直接和 DROP_H 比即可，不要再加按钮自身高度。
+                DROP_H = 90;
               // 目标屏幕坐标：水平居中于宠物，垂直贴在宠物脚下
               const petCenterX = position[0] + maxSize[0] / 2,
                 petBottom = position[1] + maxSize[1] - this.addTop;
