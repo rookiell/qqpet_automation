@@ -44,10 +44,15 @@
             autoplay: "on",
             unmuteOverlay: "hidden",
             warnOnUnsupportedContent: false,
-        splashScreen: false,
+            splashScreen: false,
             polyfills: true,
             letterbox: "off",
-            wmode: "transparent"
+            wmode: "transparent",
+            // 固定用 canvas 渲染器。WebGL 渲染器的画布内容读不回来
+            // （drawImage 拿到空白），会让「抓当前帧」时灵时不灵，
+            // 于是切动作时一会儿定格旧画面、一会儿让旧动画继续演。
+            // 宠物尺寸很小，canvas 渲染器的性能完全够，换来的是行为可预期。
+            preferredRenderer: "canvas"
         };
     </script>
     <script src="./js/ruffle/ruffle.js"></script>

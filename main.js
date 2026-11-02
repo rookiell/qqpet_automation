@@ -16,6 +16,17 @@ process.on("uncaughtException", (err) => {
 const { app } = require("electron");
 const path = require("path");
 
+// 启动标记：用来确认当前进程跑的是「项目源码」还是「打包后的 app.asar」。
+// 排查时就靠它区分——打在 app.asar 里的是旧代码，改了 src 也不会生效。
+try {
+  require("fs").appendFileSync(
+    "/tmp/qqpet-boot.log",
+    `${new Date().toLocaleString()} pid=${process.pid} asar=${String(__dirname).includes(
+      "app.asar",
+    )} dir=${__dirname}\n`,
+  );
+} catch (e) {}
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 // 禁用测试后门

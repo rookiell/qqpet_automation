@@ -4,6 +4,12 @@
     useData = ["id", "dom", "backFn", "normalSwf", "router"];
     id = "";
     dom = null;
+    // 「正在显示」与「正在下层加载」的宠物节点，换片竞态全靠这两个字段区分
+    showing = null;
+    pending = null;
+    frozen = null;
+    // 静态动作的画面缓存（key = swf 地址），避免切过去时还残留上一段动画
+    _frames = {};
     defaultAttribute = {
       id: "",
       name: "",
@@ -36,47 +42,356 @@
       };
     }
     saveChange = null;
+    // 换片。
+    //
+    // 难点：Ruffle 每次换片都要新建播放器实例，重新初始化 wasm、读 SWF、解首帧。
+    // 实测（无头 Electron 逐帧量像素）：新实例 ~250ms 才 readyState>=2，
+    // 画布真正出现像素要 ~310ms 以上。原实现 90ms 就把旧节点删了，
+    // 中间这两百多毫秒新旧都没有画面 —— 这就是「切换时闪一下」的真正来源。
+    //
+    // 而如果让旧实例一直演到新实例出画（屏幕确实不会白），文档里就会同时存在
+    // 两个 Ruffle 实例；一旦某个时刻两者的可见状态同时为真，就叠成两只宠物
+    // （「4 只手」）。这条路径很难穷举，所以改成【快照交接】：
+    // 任何时刻文档里最多只有一个 Ruffle 实例。
+    //
+    //   ① 换片前把当前画面 drawImage 到一张静态 canvas（快照），盖在最上层；
+    //   ② 立刻移除旧节点 —— 旧实例当场销毁，不可能再参与渲染；
+    //   ③ 新节点插在原位，加载期间 opacity:0 + visibility:hidden，彻底不可见；
+    //   ④ 轮询新节点 canvas，真的读出像素后才显形，同一帧撤掉快照。
+    //
+    // 两帧内容本来就一样，快照期间看不出差别，只是把等待期从「白屏/重影」
+    // 换成「定格一帧」。快照失败（WebGL 渲染器读不回像素）则退回旧路线：
+    // 旧节点继续演、新节点藏在它下面加载 —— 那时至少还有画面，不会白。
     changeSwf(t = {}) {
       let { option: e, backFn: a } = t;
-      if (!r([e.src]))
-        try {
-          let t = this.dom;
-          var i = t.cloneNode(!0);
-          for (let t in this.defaultAttribute)
-            i.setAttribute(t, this.defaultAttribute[t]);
-          for (let t in e) i.setAttribute(t, e[t]);
-          if (this.changeIng) return void (this.saveChange = e);
-          if (((this.changeIng = !0), this.nextSwfRouter?.opt?.size)) {
-            let t = this.nextSwfRouter?.opt?.size;
-            ((i.style.width = t[0] + "px"), (i.style.height = t[1] + "px"));
-          }
-          (t.parentNode.appendChild(i),
-            (t.style.position = "absolute"),
-            (t.style.transition = "all 0.08s !important"),
-            (t.style.top = "0.2px"),
-            (t.style.left = "0.2px"),
-            (t.style.opacity = 0),
-            setTimeout(() => {
-              try {
-                (t.remove(),
-                  (t = null),
-                  (this.changeIng = !1),
-                  this.saveChange &&
-                    (this.changeSwf(this.saveChange),
-                    (this.saveChange = null)));
-              } catch (t) {}
-              // Ruffle polyfill 可能晚于定时器才替换 <embed>，等新节点真正挂上再回传，
-              // 否则 this.dom 会指向已被移除的节点，之后所有换片都会静默失败。
-              this.bindDom((t) => {
-                let i = { ...e, event: "setState", dom: t };
-                (s(a) && a(i),
-                  s(this.backFn) && this.backFn(i),
-                  this.changeNum++);
-              });
-            }, this.delayTime));
-        } catch (t) {
-          console.log(t);
+      if (r([e.src])) return;
+      try {
+        let old = this.curShowing();
+        // 拿不到「当前画面」（上一轮还在加载 / 正被快照挡着）就先挂起，
+        // 等那一轮交接完成后再重放，否则会克隆出一个还没出画的空壳。
+        if (!old || !old.parentNode) return void (this.saveChange = e);
+        var neo = old.cloneNode(!0);
+        for (let k in this.defaultAttribute)
+          neo.setAttribute(k, this.defaultAttribute[k]);
+        for (let k in e) neo.setAttribute(k, e[k]);
+        if (this.changeIng) return void (this.saveChange = e);
+        this.changeIng = !0;
+        if (this.nextSwfRouter?.opt?.size) {
+          let sz = this.nextSwfRouter?.opt?.size;
+          neo.style.width = sz[0] + "px";
+          neo.style.height = sz[1] + "px";
         }
+        // 换片令牌：新一轮换片让上一轮还在轮询的监视器失效
+        let myId = (this._fadeId = (this._fadeId || 0) + 1);
+        // 上一轮还没露脸的候选先丢掉，避免两个候选同时在加载
+        this.dropPending();
+        // 清掉历史残留（只动宠物节点，别误伤 .focusPress 那层）
+        this.clearPetSiblings(old);
+        // 新节点在加载期间必须彻底不可见：opacity 挡住自身，
+        // visibility 连溢出部分（新旧动画尺寸不一致时会从边缘漏出来）一起挡掉。
+        // 两者都不影响 canvas 内部绘制，hasPaint 照样能读到像素。
+        this.hideNode(neo);
+        this.hardStyle(old, "transition", "none");
+        let parent = old.parentNode;
+        // 优先用「目标动作」缓存的画面：Stand 只有一个姿势，
+        // 直接显示它，屏幕上立刻就是站姿 —— 不会再把刚才的玩耍动画留在上面。
+        // 没有缓存（第一次切过去）才退而冻结当前画面。
+        let snap = this.cachedFrame(e.src) || this.freeze(old);
+        if (snap) {
+          this.dropSnap();
+          parent.insertBefore(snap, old);
+          try {
+            old.remove();
+          } catch (err) {}
+          ((this.frozen = snap), (this.showing = null));
+          parent.insertBefore(neo, snap.nextSibling);
+        } else {
+          // 兜底：读不回像素，只能让旧节点继续演，新节点藏在它下面
+          try {
+            let rect = old.getBoundingClientRect();
+            rect.width && (old.style.width = Math.round(rect.width) + "px");
+            rect.height && (old.style.height = Math.round(rect.height) + "px");
+          } catch (e) {}
+          old.style.position = "absolute";
+          old.style.top = "0.2px";
+          old.style.left = "0.2px";
+          old.style.zIndex = "1";
+          // 旧节点让出 id，否则 getElementById 拿到的是旧的
+          old.removeAttribute("id");
+          parent.insertBefore(neo, old);
+          this.showing = old;
+        }
+        this.pending = neo;
+        this.revealWhenReady(old, neo, myId, e.src);
+        setTimeout(() => {
+          try {
+            this.changeIng = !1;
+            // 只有当前画面可用时才重放积压的请求；否则交给交接完成后的重试
+            this.saveChange &&
+              this.showing &&
+              (this.changeSwf(this.saveChange), (this.saveChange = null));
+          } catch (err) {}
+          // Ruffle polyfill 可能晚于定时器才把 <embed> 换成自己的元素，
+          // 等新节点真正挂上再回传，否则 this.dom 会指向已被移除的节点。
+          this.bindDom((node) => {
+            let info = { ...e, event: "setState", dom: node };
+            (s(a) && a(info),
+              s(this.backFn) && this.backFn(info),
+              this.changeNum++);
+          });
+        }, this.delayTime);
+      } catch (t) {
+        console.log(t);
+      }
+    }
+    // 真正在显示的那个宠物节点。
+    // 不能直接用 this.dom：换片 90ms 后 bindDom 会把它指向还在下层加载的新节点，
+    // 拿它当「旧画面」，就会把真正的旧画面当残渣删掉，剩下的两个节点都会显示。
+    curShowing() {
+      let s = this.showing;
+      if (s && s.isConnected) return s;
+      let byId = document.getElementById(this.id);
+      if (byId && byId.isConnected) {
+        // 它是正在加载的候选时不能当「当前画面」用（还没有内容可克隆）
+        if (this.pending && byId === this.pending) return null;
+        this.pending = null;
+        return (this.showing = byId);
+      }
+      let d = this.dom;
+      if (d && d.isConnected) {
+        this.pending = null;
+        return (this.showing = d);
+      }
+      return null;
+    }
+    // 把一张 canvas 做成可插入页面的静态帧：先采样确认不是空白，再复制、摆位。
+    snapFromCanvas(c) {
+      try {
+        if (!c || !c.width || !c.height) return null;
+        // 先缩到 24x24 采样，确认真有画面，避免把一张空白帧当成快照
+        let p = this._probe;
+        if (!p) {
+          p = this._probe = document.createElement("canvas");
+          p.width = 24;
+          p.height = 24;
+        }
+        let pc = p.__ffCtx || (p.__ffCtx = p.getContext("2d"));
+        if (!pc) return null;
+        pc.clearRect(0, 0, 24, 24);
+        pc.drawImage(c, 0, 0, 24, 24);
+        let d = pc.getImageData(0, 0, 24, 24).data,
+          hit = 0;
+        for (let i = 3; i < d.length; i += 4) d[i] > 8 && hit++;
+        if (hit < 6) return null;
+        let snap = document.createElement("canvas");
+        snap.width = c.width;
+        snap.height = c.height;
+        snap.className = "petFreeze";
+        let ctx = snap.getContext("2d");
+        if (!ctx) return null;
+        ctx.drawImage(c, 0, 0);
+        (this.hardStyle(snap, "position", "absolute"),
+          this.hardStyle(snap, "left", "0"),
+          this.hardStyle(snap, "top", "0"),
+          this.hardStyle(snap, "width", "100%"),
+          this.hardStyle(snap, "height", "100%"),
+          this.hardStyle(snap, "z-index", "10"),
+          this.hardStyle(snap, "pointer-events", "none"));
+        return snap;
+      } catch (e) {
+        return null;
+      }
+    }
+    // 把当前宠物的画面冻结成静态帧
+    freeze(node) {
+      try {
+        return this.snapFromCanvas(
+          node && node.shadowRoot && node.shadowRoot.querySelector("canvas"),
+        );
+      } catch (e) {
+        return null;
+      }
+    }
+    // 静态动作（Stand 这类只有一帧的）把它那一帧缓存下来。
+    // 切过去时先显示这张图 —— 屏幕上立刻就是目标姿势，
+    // 而不是把上一段玩耍动画定格/续播那么一小会儿。
+    // 动态动作不缓存：缓存的是上次播到的中间帧，拿来顶会跳帧。
+    isStill(src) {
+      return !!src && -1 !== (src + "").indexOf("Stand");
+    }
+    cachedFrame(src) {
+      if (!this.isStill(src)) return null;
+      return this.snapFromCanvas(this._frames[src]);
+    }
+    saveFrame(src, node) {
+      if (!this.isStill(src)) return;
+      try {
+        let c = node && node.shadowRoot && node.shadowRoot.querySelector("canvas");
+        if (!c || !c.width || !c.height) return;
+        let cp = document.createElement("canvas");
+        cp.width = c.width;
+        cp.height = c.height;
+        cp.getContext("2d").drawImage(c, 0, 0);
+        this._frames[src] = cp;
+      } catch (e) {}
+    }
+    // 撤掉静态帧。按 class 兜底清理，避免某次 remove 失败后
+    // 留一层静态图永远盖在宠物上面。
+    dropSnap() {
+      this.frozen = null;
+      try {
+        let list = document.querySelectorAll("canvas.petFreeze");
+        for (let i = list.length - 1; i >= 0; i--) list[i].remove();
+      } catch (e) {}
+    }
+    // 彻底隐藏一个节点（不依赖 #pet 那条 transition，内联 !important 硬压）
+    hideNode(el) {
+      try {
+        this.hardStyle(el, "transition", "none");
+        this.hardStyle(el, "opacity", "0");
+        this.hardStyle(el, "visibility", "hidden");
+      } catch (e) {}
+    }
+    // 丢弃还没露脸的候选节点
+    dropPending() {
+      let p = this.pending;
+      this.pending = null;
+      if (!p) return;
+      this.hideNode(p);
+      setTimeout(() => {
+        try {
+          p.isConnected && p.remove();
+        } catch (e) {}
+      }, 0);
+    }
+    // 只清宠物节点，保留 keep 这一个
+    clearPetSiblings(keep) {
+      try {
+        let parent = keep && keep.parentNode;
+        if (!parent) return;
+        for (let k = parent.children.length - 1; k >= 0; k--) {
+          let n = parent.children[k];
+          if (n === keep || n === this.pending || n === this.frozen) continue;
+          let tag = (n.tagName || "").toUpperCase();
+          if ("EMBED" !== tag && -1 === tag.indexOf("RUFFLE")) continue;
+          this.hideNode(n);
+          setTimeout(() => {
+            try {
+              n.remove();
+            } catch (e) {}
+          }, 0);
+        }
+      } catch (e) {}
+    }
+    hardStyle(el, k, v) {
+      try {
+        el.style.setProperty(k, v, "important");
+      } catch (e) {}
+    }
+    // 读画布像素，判断「真的画出来了」。
+    // 不能用 metadata / readyState：实测它们比首帧早约 60ms，拿它们当判据，
+    // 切换瞬间正好露出空白。getContext("2d") 返回 null 说明 Ruffle 走的是 WebGL
+    // 渲染器（像素读不出来），这时退回「readyState>=2 再多等一会儿」的保守判断。
+    hasPaint(el) {
+      try {
+        let c = el && el.shadowRoot && el.shadowRoot.querySelector("canvas");
+        if (!c || !c.width || !c.height) return !1;
+        let ctx = c.__ffCtx;
+        if (void 0 === ctx) {
+          ctx = c.getContext("2d");
+          c.__ffCtx = ctx || null;
+        }
+        if (!ctx) {
+          this._pixelReadable = !1;
+          return !1;
+        }
+        this._pixelReadable = !0;
+        let probe = this._probe;
+        if (!probe) {
+          probe = this._probe = document.createElement("canvas");
+          probe.width = 24;
+          probe.height = 24;
+        }
+        let pctx = probe.__ffCtx || (probe.__ffCtx = probe.getContext("2d"));
+        if (!pctx) return !1;
+        pctx.clearRect(0, 0, 24, 24);
+        pctx.drawImage(c, 0, 0, 24, 24);
+        let d = pctx.getImageData(0, 0, 24, 24).data,
+          hit = 0;
+        for (let i = 3; i < d.length; i += 4) d[i] > 8 && hit++;
+        // 至少 1% 的采样点有内容，才算画出东西了
+        return hit >= 6;
+      } catch (e) {
+        return !1;
+      }
+    }
+    // 等新节点真正出画，再交接。整个过程屏幕上一直有画面（快照或旧节点）。
+    revealWhenReady(old, neo, myId, src) {
+      let start = Date.now(),
+        done = !1;
+      const MIN_WAIT = 90,
+        MAX_WAIT = 3000;
+      const swap = () => {
+        // 已经有新一轮换片接管，这次交接作废（新节点由那一轮负责清理）
+        if (myId !== this._fadeId) return;
+        // Ruffle 可能把 <embed> 替换成自己的元素，现取真正挂着的那个
+        let live = document.getElementById(this.id);
+        if (!live || !live.isConnected) live = neo;
+        if (!live) return;
+        // 同一帧交接：新画面显形、旧画面/快照消失，不留中间态
+        this.hardStyle(live, "transition", "none");
+        this.hardStyle(live, "opacity", "1");
+        this.hardStyle(live, "visibility", "visible");
+        if (old && old !== live && old.isConnected) this.hideNode(old);
+        this.dropSnap();
+        (this.showing = live), (this.pending = null);
+        this.dom = live;
+        // 静态动作攒一帧下来，下次切过去就能瞬间显示
+        this.saveFrame(src, live);
+        setTimeout(() => {
+          try {
+            old && old.isConnected && old.remove();
+          } catch (e) {}
+        }, 120);
+        // 交接期间被挂起的换片请求，现在可以执行了
+        if (this.saveChange) {
+          let s = this.saveChange;
+          this.saveChange = null;
+          setTimeout(() => this.changeSwf(s), 30);
+        }
+      };
+      const finish = () => {
+        if (done) return;
+        done = !0;
+        if (myId !== this._fadeId) return;
+        // 读不到像素（WebGL 渲染器）时，前面的就绪判断只能靠时序估，
+        // 留一点余量再撤旧画面。旧节点在上层，多留一会儿只是「旧动作多演 0.2 秒」，
+        // 顶多是切换稍慢，绝不会露出空白。
+        let wait = !1 === this._pixelReadable ? 160 : 0;
+        wait ? setTimeout(swap, wait) : swap();
+      };
+      const tick = () => {
+        if (done) return;
+        if (myId !== this._fadeId) {
+          done = !0;
+          return;
+        }
+        let elapsed = Date.now() - start,
+          cur = document.getElementById(this.id) || neo,
+          ok = this.hasPaint(cur);
+        // 读不到像素（WebGL 渲染器）时的保守兜底：整片加载完 + 明显超过首帧耗时
+        if (!ok && !1 === this._pixelReadable) {
+          let rs = -1;
+          try {
+            rs = cur && cur.readyState;
+          } catch (e) {}
+          rs >= 2 && elapsed >= 420 && (ok = !0);
+        }
+        if (ok && elapsed >= MIN_WAIT) return void finish();
+        if (elapsed > MAX_WAIT) return void finish();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
     }
     bindDom(t, e = 40) {
       let a = document.getElementById(this.id);

@@ -580,8 +580,7 @@
                                   });
                             else if (
                               "roller" == t.type &&
-                              (console.log(t, n.petState),
-                              "normal" == n.petState || "sick" == n.petState) &&
+                              ("normal" == n.petState || "sick" == n.petState) &&
                               getPetInfoOne("health", "info") &&
                               getChance(0.2)
                             ) {
@@ -595,6 +594,35 @@
                                   communication: ["toHeartTolk"],
                                   nextActiveStr: "speak",
                                 }));
+                            }
+                            else if ("circle" == t.type) {
+                              // 拖着宠物在屏幕上绕圈 = 陪它玩（渲染层已做轨迹判定 + 3s 冷却）
+                              let _now = +getPetInfoOne("mood", "info") || 0,
+                                _max = +getPetInfoOne("mood", "maxInfo") || 1e3;
+                              if (_now < _max) {
+                                let _mood = Math.min(_now + getRandom(10, 30), _max);
+                                setPetInfo({ info: { mood: _mood } });
+                                try {
+                                  openSpeak({
+                                    data: { type: "text" },
+                                    communication: ["toHeartTolk"],
+                                    nextActiveStr: "speak",
+                                  });
+                                } catch (e) {}
+                                try {
+                                  _require("fs").appendFileSync(
+                                    "/tmp/qqpet-circle.log",
+                                    `${new Date().toLocaleString()} play(${t.by || "circle"}) mood ${_now} -> ${_mood}\n`,
+                                  );
+                                } catch (e) {}
+                              } else {
+                                try {
+                                  _require("fs").appendFileSync(
+                                    "/tmp/qqpet-circle.log",
+                                    `${new Date().toLocaleString()} circle skip mood full ${_now}/${_max}\n`,
+                                  );
+                                } catch (e) {}
+                              }
                             }
                         },
                         "html_bus-main_backPetLoadFinish": (e, t) => {
