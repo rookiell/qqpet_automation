@@ -16,6 +16,7 @@
           positionType = null;
           traysVertical = "top";
           traysAlign = "right";
+          traysMenuTop = 1;
           cleate(e) {
             let {
               nowPosition: t,
@@ -42,6 +43,7 @@
               );
               ((this.traysAlign = p.align),
                 (this.traysVertical = p.vertical),
+                (this.traysMenuTop = p.menuTop),
                 (s = [p.x, p.y]));
             } else {
               "followMain" == this.positionType &&
@@ -132,6 +134,7 @@
                             positionType: n.positionType,
                             traysVertical: n.traysVertical,
                             traysAlign: n.traysAlign,
+                            traysMenuTop: n.traysMenuTop,
                           }),
                           t.focus())
                         : "close" == o.event && n.doClose();

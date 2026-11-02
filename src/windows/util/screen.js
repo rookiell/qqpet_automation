@@ -39,20 +39,26 @@ function clampToScreen(x, y, w, h, anchor) {
 // 窗口里菜单只占一侧（另一侧留给子菜单展开），所以返回值带上对齐方式给渲染层用：
 //   align = "right" → 菜单贴窗口右侧（left: winW - menuW），子菜单朝左展开
 //   align = "left"  → 菜单贴窗口左侧，子菜单朝右展开
-//   vertical = "top" → 菜单距窗口顶 head，子菜单向上错开时不至于顶到屏幕外
-//   vertical = "bottom" → 菜单贴窗口底（图标下方放不下时上翻）
+//   menuTop → 菜单在窗口内的 y 偏移（渲染层用 top 定位，不再写死 60px）
+//
+// 关键：窗口不能摆到 workArea 之外。macOS 上把窗口 y 设成负值（想靠"窗口内留余量"
+// 把菜单顶到菜单栏下方），系统会直接把窗口钳回 workArea.y，菜单于是被整个推下来
+// 60px，看起来离菜单栏还有一段距离。所以这里先算菜单的屏幕顶边，再把窗口贴着它摆。
 function placeTrayMenu(trayBounds, winW, winH) {
   const MENU_W = 130; // .bk_body 的实际宽度
-  const MENU_H = 150; // 六项 + 头尾的估算高度，只用于判断要不要上翻
-  const gap = 2; // 图标与菜单的间距
-  const head = 60; // 菜单距窗口顶部的余量
+  const MENU_H = 128; // 六项菜单的实测高度（含头尾装饰）
+  const gap = 1; // 菜单与菜单栏底边的最小间隙
   const b = trayBounds || {};
   const cx = Math.round((b.x || 0) + (b.width || 0) / 2);
-  const tipBottom = Math.round((b.y || 0) + (b.height || 0));
+  const tipTop = Math.round(b.y || 0);
+  const tipBottom = Math.round(tipTop + (b.height || 0));
   const area = getWorkArea([cx, tipBottom]);
   const align = cx > area.x + area.width / 2 ? "right" : "left";
-  const vertical =
-    tipBottom + MENU_H + gap > area.y + area.height ? "bottom" : "top";
+  // 图标下方放得下就向下展开，否则翻到图标上方（底部任务栏）
+  const flip = tipBottom + gap + MENU_H > area.y + area.height;
+  const menuY = flip ? tipTop - gap - MENU_H : area.y + gap;
+  // 窗口顶边不能高于可用区域，否则会被系统钳回来、菜单跟着错位
+  const winY = Math.max(area.y, Math.min(menuY, area.y + area.height - winH));
   // 横向居中对齐图标，但不许把菜单推出一侧屏幕
   const menuX = Math.max(
     area.x,
@@ -60,11 +66,10 @@ function placeTrayMenu(trayBounds, winW, winH) {
   );
   return {
     x: Math.round(menuX - (align === "right" ? winW - MENU_W : 0)),
-    y: Math.round(
-      vertical === "bottom" ? tipBottom - gap - winH : tipBottom + gap - head,
-    ),
+    y: Math.round(winY),
+    menuTop: Math.round(menuY - winY),
     align,
-    vertical,
+    vertical: flip ? "bottom" : "top",
     menuW: MENU_W,
     menuH: MENU_H,
   };

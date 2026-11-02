@@ -46,20 +46,23 @@
             this.positionType = t.positionType;
             if ("trays" == t.positionType) {
               // 托盘右键：菜单贴窗口的某一侧（主进程已按托盘图标算好窗口位置），
-              // 菜单只占一侧、另一侧留给子菜单，子菜单朝空白那侧展开
+              // 菜单只占一侧、另一侧留给子菜单，子菜单朝空白那侧展开。
+              // 纵向用主进程给的 traysMenuTop 精确定位：窗口顶边就是菜单栏底边，
+              // 不能再靠"窗口内留 60px 余量"——那样窗口会被系统钳回来，菜单跟着下坠。
+              const mt = Number(t.traysMenuTop) || 0;
               this.menuMainStyle = {
                 position: "fixed",
                 left: "left" == t.traysAlign ? "0" : "210px",
+                top: mt + "px",
+                // CSS 里 .menuMain 有 bottom: 0，不清掉会和 top 一起把容器拉满全高
+                bottom: "auto",
               };
-              "bottom" == t.traysVertical
-                ? (this.menuMainStyle.bottom = "0")
-                : (this.menuMainStyle.top = "60px");
               // 子菜单用绝对偏移定位（不走 translate）：托盘贴着菜单栏时，
               // translateY(-40%) 会把子菜单顶到屏幕顶部压住菜单栏；
-              // 往左/右各移一个菜单宽度（130）刚好贴住主菜单侧边，top 提起约半项高对齐父项。
+              // top 再收敛一次，保证不越过窗口顶（越界会被窗口裁掉）。
               this.sunBkBodyStyle = {
                 left: "left" == t.traysAlign ? "130px" : "-130px",
-                top: "-28px",
+                top: Math.max(-28, -mt) + "px",
               };
             } else if ("followMain" == t.positionType) {
               ((this.menuMainStyle.left = "25%"),
