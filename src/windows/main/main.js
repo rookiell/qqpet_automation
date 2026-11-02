@@ -826,8 +826,19 @@
                             (rightMenu.show
                               ? rightMenu.doClose()
                               : rightMenu.cleate({
-                                  nowPosition: [e.bounds.x, e.bounds.y],
+                                  // 托盘图标中心点 + 图标矩形，交给 rightMenu 贴着图标摆位
+                                  nowPosition: [
+                                    e.bounds.x + e.bounds.width / 2,
+                                    e.bounds.y + e.bounds.height,
+                                  ],
+                                  trayBounds: [
+                                    e.bounds.x,
+                                    e.bounds.y,
+                                    e.bounds.width,
+                                    e.bounds.height,
+                                  ],
                                   msg: "msg fo rightMenu is trays",
+                                  positionType: "trays",
                                 }));
                         },
                       },

@@ -14,24 +14,47 @@
             ((this.window = null), (this.show = !1), (this.name = "rightMenu"));
           }
           positionType = null;
+          traysVertical = "top";
+          traysAlign = "right";
           cleate(e) {
-            let { nowPosition: t, msg: o, positionType: a } = e;
+            let {
+              nowPosition: t,
+              msg: o,
+              positionType: a,
+              trayBounds: b,
+            } = e;
             ((this.positionType = a), (this.width = 340), (this.height = 300));
             let s = [
               Math.trunc(t[0] - this.width / 2),
               Math.trunc(t[1] - this.height),
             ];
-            "followMain" == this.positionType &&
-              ((s[0] += this.width / 2 / 2), (s[1] += 80));
-            // 宠物贴着屏幕边缘时，菜单会有一列落在屏幕外，这里收敛回可视区域
-            // 注意：创建窗口时 window.js 会给未声明 notChangeSize 的窗口各加 10px，按实际尺寸算
-            s = screenUtil.clampToScreen(
-              s[0],
-              s[1],
-              this.width + 10,
-              this.height + 10,
-              t,
-            );
+            if (
+              "trays" == this.positionType &&
+              Array.isArray(b) &&
+              4 == b.length
+            ) {
+              // 托盘右键：菜单贴着托盘图标摆（图标下方放不下就上翻），水平居中于图标。
+              // 具体换算见 util/screen.js 的 placeTrayMenu
+              const p = screenUtil.placeTrayMenu(
+                { x: b[0], y: b[1], width: b[2], height: b[3] },
+                this.width,
+                this.height,
+              );
+              ((this.traysAlign = p.align),
+                (this.traysVertical = p.vertical),
+                (s = [p.x, p.y]));
+            } else {
+              "followMain" == this.positionType &&
+                ((s[0] += this.width / 2 / 2), (s[1] += 80));
+              // 宠物贴着屏幕边缘时，菜单会有一列落在屏幕外，这里收敛回可视区域
+              s = screenUtil.clampToScreen(
+                s[0],
+                s[1],
+                this.width,
+                this.height,
+                t,
+              );
+            }
             let n = this;
             windowsMain
               .open({
@@ -44,6 +67,8 @@
                   x: s[0],
                   y: s[1],
                   alwaysOnTop: !0,
+                  // 固定窗口尺寸，位置计算按 340x300 精确对齐（否则 window.js 会各加 10px）
+                  notChangeSize: !0,
                 },
                 created(e) {
                   let { vm: t, preloads: o, getinfo: a, wsMethods: s } = e;
@@ -105,6 +130,8 @@
                           t.webContents.send("rightMenu_m_bus_h", {
                             type: "load",
                             positionType: n.positionType,
+                            traysVertical: n.traysVertical,
+                            traysAlign: n.traysAlign,
                           }),
                           t.focus())
                         : "close" == o.event && n.doClose();

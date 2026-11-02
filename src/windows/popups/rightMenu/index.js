@@ -42,16 +42,34 @@
     mounted() {
       (this.doMousePenetrate(),
         window.electronAPI.rightMenu_m_bus((e, t) => {
-          if ("load" == t.type)
-            ((this.positionType = t.positionType),
-              "followMain" == t.positionType &&
-                ((this.menuMainStyle.left = "25%"),
+          if ("load" == t.type) {
+            this.positionType = t.positionType;
+            if ("trays" == t.positionType) {
+              // 托盘右键：菜单贴窗口的某一侧（主进程已按托盘图标算好窗口位置），
+              // 菜单只占一侧、另一侧留给子菜单，子菜单朝空白那侧展开
+              this.menuMainStyle = {
+                position: "fixed",
+                left: "left" == t.traysAlign ? "0" : "210px",
+              };
+              "bottom" == t.traysVertical
+                ? (this.menuMainStyle.bottom = "0")
+                : (this.menuMainStyle.top = "60px");
+              // 子菜单用绝对偏移定位（不走 translate）：托盘贴着菜单栏时，
+              // translateY(-40%) 会把子菜单顶到屏幕顶部压住菜单栏；
+              // 往左/右各移一个菜单宽度（130）刚好贴住主菜单侧边，top 提起约半项高对齐父项。
+              this.sunBkBodyStyle = {
+                left: "left" == t.traysAlign ? "130px" : "-130px",
+                top: "-28px",
+              };
+            } else if ("followMain" == t.positionType) {
+              ((this.menuMainStyle.left = "25%"),
                 (this.menuMainStyle.bottom = "20px"),
                 (this.sunBkBodyStyle.transform =
                   "translateX(100%) translateY(-40%)"),
-                (this.menu[5].unShow = !0)),
-              seeApp());
-          else if ("changeMenu" == t.type && t?.where?.length > 0 && t?.data) {
+                (this.menu[5].unShow = !0));
+            }
+            seeApp();
+          } else if ("changeMenu" == t.type && t?.where?.length > 0 && t?.data) {
             let e = t.where.length;
             switch (e) {
               case (e = 1):

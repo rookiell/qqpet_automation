@@ -33,4 +33,41 @@ function clampToScreen(x, y, w, h, anchor) {
   ];
 }
 
-module.exports = { getWorkArea, clampToScreen };
+// 托盘右键菜单的窗口摆放。
+// 托盘图标（system tray / 菜单栏）不像宠物那样有"左上角"可当锚点，菜单必须贴着图标走：
+// 图标在顶部就往下展开，图标在底部任务栏就往上翻，水平方向居中对齐图标且不出屏。
+// 窗口里菜单只占一侧（另一侧留给子菜单展开），所以返回值带上对齐方式给渲染层用：
+//   align = "right" → 菜单贴窗口右侧（left: winW - menuW），子菜单朝左展开
+//   align = "left"  → 菜单贴窗口左侧，子菜单朝右展开
+//   vertical = "top" → 菜单距窗口顶 head，子菜单向上错开时不至于顶到屏幕外
+//   vertical = "bottom" → 菜单贴窗口底（图标下方放不下时上翻）
+function placeTrayMenu(trayBounds, winW, winH) {
+  const MENU_W = 130; // .bk_body 的实际宽度
+  const MENU_H = 150; // 六项 + 头尾的估算高度，只用于判断要不要上翻
+  const gap = 2; // 图标与菜单的间距
+  const head = 60; // 菜单距窗口顶部的余量
+  const b = trayBounds || {};
+  const cx = Math.round((b.x || 0) + (b.width || 0) / 2);
+  const tipBottom = Math.round((b.y || 0) + (b.height || 0));
+  const area = getWorkArea([cx, tipBottom]);
+  const align = cx > area.x + area.width / 2 ? "right" : "left";
+  const vertical =
+    tipBottom + MENU_H + gap > area.y + area.height ? "bottom" : "top";
+  // 横向居中对齐图标，但不许把菜单推出一侧屏幕
+  const menuX = Math.max(
+    area.x,
+    Math.min(cx - MENU_W / 2, area.x + area.width - MENU_W),
+  );
+  return {
+    x: Math.round(menuX - (align === "right" ? winW - MENU_W : 0)),
+    y: Math.round(
+      vertical === "bottom" ? tipBottom - gap - winH : tipBottom + gap - head,
+    ),
+    align,
+    vertical,
+    menuW: MENU_W,
+    menuH: MENU_H,
+  };
+}
+
+module.exports = { getWorkArea, clampToScreen, placeTrayMenu };
