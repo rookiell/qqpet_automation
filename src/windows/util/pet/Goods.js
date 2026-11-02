@@ -51,6 +51,15 @@
             "store" == a
               ? i || ("work" != l && "study" != l && (r = r[o]))
               : "shop" == a && (r = this.getOurGoods(o));
+            // 日常三种消耗品按「新增属性值」从小到大排。
+            // 必须在下面 slice 分页之前排，否则只是把当前这一页内部排了序。
+            // 注意不能把 r 原地排序 —— 那是 storeGoods（背包缓存）的数组引用，
+            // 排了就等于改了存档里的背包顺序，所以先 slice 一份再排。
+            "store" == a &&
+              !i &&
+              Array.isArray(r) &&
+              ("food" == o || "commodity" == o || "medicine" == o) &&
+              (r = r.slice().sort(this.consumableCompare(o)));
             let n = {
                 total: countMaxPageSize(r.length, t),
                 pageSize: t,
@@ -75,6 +84,43 @@
                     : this.getGoodsInfo({ goodNames: u });
             }
             return n;
+          }
+          // 消耗品的排序依据，返回 [主属性, 次属性]：
+          //   食物  → 饥饿值 starve，同饥饿值时按附加属性（魅力/智力/武力）多少
+          //   清洁  → 清洁值 clean，同上
+          //   吃药  → 药品在商品表里没有数值属性（22 种里 21 种 starve/clean/charm/
+          //           intel/strong 全是 0，只有 desc 说明治什么病），所以按价格排：
+          //           药价对应的正是病症轻重 —— 50 感冒 / 80 重感冒 / 120 肺炎 /
+          //           200 肺结核 / 240 百草丹 / 400 还魂丹。
+          // 入参可能是 "food*_10013006-2" 也可能是 "_10013006-2"，两种都兼容。
+          consumableSortKey(e, t) {
+            try {
+              let s = String(e).split("*").pop().split("-")[0],
+                o = shop[t] && shop[t][s];
+              if (!o) return [0, 0];
+              let a = +o.starve || 0,
+                l = +o.clean || 0,
+                i =
+                  (+o.charm || 0) + (+o.intel || 0) + (+o.strong || 0);
+              return "food" == t
+                ? [a, i]
+                : "commodity" == t
+                  ? [l, i]
+                  : "medicine" == t
+                    ? [+o.price || 0, a + l + i]
+                    : [0, 0];
+            } catch (e) {
+              return [0, 0];
+            }
+          }
+          consumableCompare(e) {
+            let t = this;
+            return (s, o) => {
+              let a = t.consumableSortKey(s, e),
+                l = t.consumableSortKey(o, e);
+              // 主属性相同就看次属性；再相同则保持原有顺序（sort 稳定）
+              return a[0] - l[0] || a[1] - l[1];
+            };
           }
           getOurGoods(e = null) {
             let t = [];
