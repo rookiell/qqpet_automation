@@ -111,6 +111,23 @@
                             [4, 1],
                           )
                         : l({ label: "开启免打扰", value: "openMute" }, [4, 1]);
+                    },
+                    // 自动学习开关：和「停止成长」同级，直接放在右键菜单里，
+                    // 不用翻设置窗口（那里列表要滚动，找不到）。
+                    // 不加 new 标记——那会在左边多出一个灯泡高亮图标。
+                    m = (e) => {
+                      e?.autoStudy
+                        ? l(
+                            {
+                              label: "关闭自动学习",
+                              value: "closeAutoStudy",
+                            },
+                            [6],
+                          )
+                        : l(
+                            { label: "开启自动学习", value: "openAutoStudy" },
+                            [6],
+                          );
                     };
                   let h = !1,
                     p = ["3-0"];
@@ -122,6 +139,7 @@
                       "mounted" == o.event
                         ? (r(getPetInfo()),
                           u(getSys()),
+                          m(getSys()),
                           t.on("blur", (e) => {
                             h
                               ? setTimeout(() => {
@@ -181,7 +199,11 @@
                         ].stopNow = !0),
                           setPetInfo({ activeOption: e }),
                           petControl.GrowUp.GrowUpMain({ unGrow: !0 }));
-                      } else
+                      } else if ("openAutoStudy" == o.data.value)
+                        setSys({ name: "autoStudy", value: !0 });
+                      else if ("closeAutoStudy" == o.data.value)
+                        setSys({ name: "autoStudy", value: !1 });
+                      else
                         "quit" == o.data.value
                           ? app.quit()
                           : "petInfo" == o.data.value
@@ -215,7 +237,7 @@
                         event: "system",
                         name: n.name,
                         fn: (e) => {
-                          u(e);
+                          (u(e), m(e));
                         },
                       },
                     ]));

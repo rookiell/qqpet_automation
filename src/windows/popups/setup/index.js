@@ -25,11 +25,6 @@
             { label: "开机自启", type: "radio", value: "startupSelf" },
             { label: "暂停成长", type: "radio", value: "stopGrowth" },
             { label: "开启免打扰模式", type: "radio", value: "doNotDisturb" },
-            {
-              label: "自动学习（学完自动再上一节）",
-              type: "radio",
-              value: "autoStudy",
-            },
           ],
         },
         {

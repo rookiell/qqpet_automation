@@ -13,7 +13,7 @@
         let saveSpeakData = null;
         // 自动学习：学习结束会弹一个「我学习回来了」的礼包气泡，物品在结算那一刻
         // 就已经入库了，气泡关掉等同于「领取完」——接住这个时机自动再上一节课。
-        // 开关：系统设置 > 全局设置 > 自动学习（getSys("autoStudy")）。
+        // 开关：右键菜单 > 自动学习（getSys("autoStudy")）。
         global.onSpeakClosed = () => {
           try {
             if (!getSys("autoStudy")) return;

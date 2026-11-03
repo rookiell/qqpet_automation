@@ -29,6 +29,7 @@
           fn: 1,
         },
         { label: "停止成长", value: "stopGrowth" },
+        { label: "开启自动学习", value: "openAutoStudy" },
         { label: "退出宠物", value: "quit" },
       ],
       activeFatherValue: null,
@@ -69,7 +70,9 @@
                 (this.menuMainStyle.bottom = "20px"),
                 (this.sunBkBodyStyle.transform =
                   "translateX(100%) translateY(-40%)"),
-                (this.menu[5].unShow = !0));
+                // 宠物本体右键时不显示「退出宠物」；按 value 找，别写死下标
+                // （菜单里加过「开启自动学习」，写死的 5 会误伤新项）
+                (this.menu.find((e) => "quit" == e.value).unShow = !0));
             }
             seeApp();
           } else if ("changeMenu" == t.type && t?.where?.length > 0 && t?.data) {
