@@ -47,6 +47,8 @@
           }
           addMax = 0;
           addMaxi = 1;
+          // 刚下课待续的科目（{...val, at}），礼包气泡关掉后由自动学习消费
+          studyPending = null;
           GrowUpMain(e = {}) {
             let { first: t, unGrow: o = !1 } = e,
               i = getPetInfo();
@@ -177,6 +179,11 @@
             return (e / t) | 0;
           }
           sweetHeartAuto() {}
+          // 取走"刚下课"的科目（一次性）。自动学习用它决定续哪门课。
+          takeStudyPending() {
+            let e = this.studyPending;
+            return ((this.studyPending = null), e);
+          }
           countdownActiveTime(e, t, o, i) {
             let n = e?.work
               ? "work"
@@ -201,7 +208,17 @@
                 o(e[n].obtain);
                 let a = "",
                   l = getRandom(1, 4);
-                ((l = l <= 3 ? 1 : 2),
+                ("study" == n &&
+                  // 记录这一节课上了什么，供「自动学习」在领完礼包后续课用。
+                  // 必须在 e[n] = null 之前拷走；stateTime/startTime 要重置，
+                  // 否则续课一开始就被判定为已下课。
+                  (this.studyPending = {
+                    ...e[n],
+                    stateTime: 0,
+                    startTime: null,
+                    at: Date.now(),
+                  }),
+                  (l = l <= 3 ? 1 : 2),
                   "study" == n
                     ? (i(e[n].value),
                       isStudyUpLevel(t.study[e[n].value])
