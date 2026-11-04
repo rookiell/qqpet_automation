@@ -501,8 +501,29 @@
               event: "setState",
             };
             s(this.backFn) && this.backFn(t);
-          } else this.nextSwf(this.router.getRouter("play"));
+          } else this.nextSwf(this.pickPlay());
         }, 10000 + Math.trunc(15000 * Math.random()))));
+    }
+    // 最近播过的玩耍动画（存 src，含 age/state 路径，换阶段不会串）
+    playHistory = [];
+    // 抽一段玩耍动画，避开刚播过的那几段。
+    // 池子只有 47 段（happy）到 22 段（sad），而闲置循环现在每 10~25 秒抽一次，
+    // 纯均匀随机时「和上一段一样」有 1/47≈2% 的概率，一小时抽两百多次，
+    // 平均十几分钟就会连播同一段，观感上就像卡住了。这里抽到最近 3 段就重摇，
+    // 最多 8 次；池子实在太小（比如某个状态只有几段）就接受重复。
+    pickPlay() {
+      let src = "",
+        pick = null;
+      for (let i = 0; i < 8; i++) {
+        pick = this.router.getRouter("play");
+        src = pick?.src || "";
+        if (!src || -1 === this.playHistory.indexOf(src)) break;
+      }
+      if (src) {
+        (this.playHistory.push(src),
+          this.playHistory.length > 3 && this.playHistory.shift());
+      }
+      return pick;
     }
     nextSwf(t, e, a) {
       if (
