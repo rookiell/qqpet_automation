@@ -31,14 +31,22 @@
             // 正忙着 / 生病 / 暂停成长 时不续课
             if (active.study || active.work || active.trip || active.ill) return;
             if (info?.maxInfo?.stopGrowth) return;
-            // 刚下课可能已经升了学历，用最新的科目 key 重新取一份数据
-            // （课时、属性、消耗都是新阶段的），取不到就沿用原来那份。
+            // 快速学习下一节课就能把一门科目读完，所以这里除了续当前科目，
+            // 还要在本科目已「学无止境」时自动换到下一门还没读完的科目。
             let next = pending;
             try {
               const list = pet.Goods.getStudyData() || [],
-                keyName = list.find((k) =>
-                  String(k).endsWith("-" + pending.value),
-                ),
+                remain = (k) => {
+                  const v = String(k).split("-").pop();
+                  return pet.GrowUp && pet.GrowUp.studyRemain
+                    ? pet.GrowUp.studyRemain(v)
+                    : 1;
+                },
+                keyName =
+                  list.find(
+                    (k) =>
+                      String(k).endsWith("-" + pending.value) && remain(k) > 0,
+                  ) || list.find((k) => remain(k) > 0),
                 fresh =
                   keyName && pet.Goods.getStudyInfo({ goodName: keyName });
               fresh && (next = fresh);

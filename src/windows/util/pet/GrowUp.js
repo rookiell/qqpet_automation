@@ -3,6 +3,8 @@
       303: (e, t, o) => {
         e = o.nmd(e);
         const { Level: i, pinkDiamondLevel: n } = o(527);
+        // 课程四个阶段的 shop key 前缀（小学 → 中学 → 大学 → 研究生）
+        const STUDY_STAGES = ["_xx-", "_zx-", "_dx-", "_yjs-"];
         class a {
           callBackState = (e) => {};
           oldEvent = null;
@@ -10,6 +12,76 @@
           growTime = 6e4;
           intervalTime = null;
           normalGrowthRate = 260;
+          // 「快速学习」：开启后一节课直接把本科目从当前进度一路读到研究生
+          // 毕业（学无止境），不再一阶段一阶段地读。学习值、属性、礼包一次性
+          // 发放；属性按各阶段真实课时分别累加（小学 15、中学 25、大学 45、
+          // 研究生 85…），而不是拿当前阶段的值乘总课时。
+          // 消耗没有跟着放大（一节课还是扣一节课的饥饿/清洁），按需求保留。
+          // 已经「学无止境」时退回一节课的正常结算。
+          studyShop = void 0;
+          getStudyShop() {            if (void 0 === this.studyShop) {
+              try {
+                const m = eval("require")("./shop.js");
+                this.studyShop = (m && m.shop && m.shop.study) || null;
+              } catch (err) {
+                this.studyShop = null;
+              }
+            }
+            return this.studyShop;
+          }
+          // 该科目还差多少节课才「学无止境」（研究生读完）。<= 0 即读完。
+          studyRemain(e) {
+            try {
+              const cur = getPetInfoOne("study", "activeValue") || {},
+                done = +cur[e] || 0,
+                table = this.getStudyShop(),
+                last = table && table[STUDY_STAGES[3] + e],
+                total = (last && last.classNum) || 95;
+              return total - done;
+            } catch (err) {
+              return 1;
+            }
+          }
+          // 返回 { step, obtain }；step = 1 表示按一节课正常结算。
+          studyPlan(e, t) {
+            const one = { step: 1, obtain: null };
+            if (!this.isStudyBoost()) return one;
+            try {
+              const table = this.getStudyShop();
+              if (!table || !e || !e.value) return one;
+              let done = (t.study && t.study[e.value]) || 0,
+                from = 0,
+                step = 0,
+                obtain = {};
+              for (let j = 0; j < STUDY_STAGES.length; j++) {
+                const item = table[STUDY_STAGES[j] + e.value];
+                if (!item) continue;
+                // classNum 是这一阶段读完时的累计课时（9 / 20 / 40 / 95）
+                let end = item.classNum || 0,
+                  total = end - from,
+                  used = Math.min(Math.max(done - from, 0), total),
+                  left = total - used;
+                if (left > 0) {
+                  step += left;
+                  ["intel", "charm", "strong"].forEach((k) => {
+                    item[k] && (obtain[k] = (obtain[k] || 0) + item[k] * left);
+                  });
+                }
+                from = end;
+              }
+              // 200 只是防御脏数据，正常最大是从小学一路读到研究生 95 节
+              return step > 0 ? { step: Math.min(step, 200), obtain } : one;
+            } catch (err) {
+              return one;
+            }
+          }
+          isStudyBoost() {
+            try {
+              return !!getPetInfoOne("studyBoost", "otherOptions");
+            } catch (e) {
+              return !1;
+            }
+          }
           constructor(e = {}) {
             let { fn: t, petInfo: o, growTime: i, callBackState: n } = e;
             ((this.oldEvent = null),
@@ -156,23 +228,15 @@
               });
               ((t[0] = +t[0] + +o), (t[1] = +t[1] + +o));
             }
-            for (let o in e.activeOption)
-              e.activeOption[o] &&
-                (e.activeOption[o]?.starve &&
-                  (t[0] += this.doGetMS(
-                    e.activeOption[o].starve,
-                    e.activeOption[o].overTime,
-                  )),
-                e.activeOption[o]?.clean &&
-                  (t[1] += this.doGetMS(
-                    e.activeOption[o].clean,
-                    e.activeOption[o].overTime,
-                  )),
-                e.activeOption[o]?.mood &&
-                  (t[2] += this.doGetMS(
-                    e.activeOption[o].mood,
-                    e.activeOption[o].overTime,
-                  )));
+            // 注意：消耗不随「一键学完」放大（用户要求），一节课仍只扣一节课的
+            // 饥饿/清洁/心情；放大的是学习值、属性和礼包物品。
+            for (let o in e.activeOption) {
+              if (!e.activeOption[o]) continue;
+              const cur = e.activeOption[o];
+              (cur?.starve && (t[0] += this.doGetMS(cur.starve, cur.overTime)),
+                cur?.clean && (t[1] += this.doGetMS(cur.clean, cur.overTime)),
+                cur?.mood && (t[2] += this.doGetMS(cur.mood, cur.overTime)));
+            }
             return ($test && (t = [1, 1, 1]), t);
           }
           doGetMS(e, t) {
@@ -205,26 +269,51 @@
                   e
                 );
               if (e[n].stateTime + 1 > e[n].overTime) {
-                o(e[n].obtain);
+                // 快速学习（右键菜单里可开）：一节课把本科目剩余课时一次结算完。
+                // 属性总额已在 studyPlan 里按各阶段课时算好，这里不再乘倍数。
+                // 只作用于学习，打工/旅游保持原样。
+                const plan = "study" == n ? this.studyPlan(e[n], t) : null,
+                  boost = plan ? plan.step : 1,
+                  planObtain =
+                    plan && plan.obtain && Object.keys(plan.obtain).length
+                      ? plan.obtain
+                      : null;
+                let obtain = planObtain || e[n].obtain || {};
+                o(obtain);
                 let a = "",
-                  l = getRandom(1, 4);
-                ("study" == n &&
-                  // 记录这一节课上了什么，供「自动学习」在领完礼包后续课用。
-                  // 必须在 e[n] = null 之前拷走；stateTime/startTime 要重置，
-                  // 否则续课一开始就被判定为已下课。
+                  l = getRandom(1, 4),
+                  // 这次结算跨过了几个阶段（每次跨阶段都该有一次升学礼包）
+                  ups = 0;
+                // 记录这一节课上了什么，供「自动学习」在领完礼包后续课用。
+                // 必须在 e[n] = null 之前拷走；stateTime/startTime 要重置，
+                // 否则续课一开始就被判定为已下课。
+                "study" == n &&
                   (this.studyPending = {
                     ...e[n],
                     stateTime: 0,
                     startTime: null,
                     at: Date.now(),
-                  }),
-                  (l = l <= 3 ? 1 : 2),
-                  "study" == n
-                    ? (i(e[n].value),
-                      isStudyUpLevel(t.study[e[n].value])
-                        ? ((l = 3), (a = "overStudyUp"))
-                        : (a = "overStudy"))
-                    : "work" == n && (a = "overWork"),
+                  });
+                l = l <= 3 ? 1 : 2;
+                if ("study" == n) {
+                  const before = (t.study && t.study[e[n].value]) || 0;
+                  // 逐次 +1，让每一节都算进学习值
+                  for (let k = 0; k < boost; k++) i(e[n].value);
+                  const after = (t.study && t.study[e[n].value]) || 0;
+                  // 一次加多节会「跨过」9/20/40/95 而不是正好等于它，
+                  // 所以用区间判断，否则加速后永远不提示升学。
+                  // ups 是这次跨过的阶段数：小学→中学、中学→大学、大学→研究生、
+                  // 研究生毕业各算一次，每个阶段都补一份升学礼包。
+                  ups = [9, 20, 40, 95].filter(
+                    (v) => before < v && after >= v,
+                  ).length;
+                  ups ? (a = "overStudyUp") : (a = "overStudy");
+                } else "work" == n && (a = "overWork");
+                // 礼包：每节课 1~2 份，快速学习时按课时数一次发完；
+                // 跨过的每个阶段再补 1 份（原逻辑升学那节是 3 份），
+                // 这份不跟着课时数放大。
+                ((l = l * boost + ups),
+                  ups && l < 3 && (l = 3),
                   (e[n] = null));
                 let r = [],
                   s = () => {
@@ -243,7 +332,9 @@
                                 communication: ["state", a],
                                 speak: !0,
                                 change: !0,
-                                otherData: { imgUrls: r },
+                                // 加速后一节课可能给 10~30 件，气泡横向放不下，
+                                // 只展示前 8 个示意；东西照常全部入库。
+                                otherData: { imgUrls: r.slice(0, 8) },
                               }));
                       },
                     );

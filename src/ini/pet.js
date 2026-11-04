@@ -55,6 +55,8 @@
       pinkDiamondBeginDate: 0,
       pinkDiamondExpirationDate: 0,
       sweetHeart: !1,
+      // 一键学完：一节课读完本科目当前阶段的全部剩余课时（右键菜单可开关）
+      studyBoost: !1,
     },
     fishing: {
       fishes: [],

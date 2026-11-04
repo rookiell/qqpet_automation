@@ -128,6 +128,23 @@
                             { label: "开启自动学习", value: "openAutoStudy" },
                             [6],
                           );
+                    },
+                    // 快速学习：一节课直接把本科目从当前进度读到研究生毕业，
+                    // 学习值/属性/物品一次性发放（消耗不放大）。
+                    // 状态存在 otherOptions.studyBoost，GrowUp 结算时直接读。
+                    mb = (e) => {
+                      e?.otherOptions?.studyBoost
+                        ? l(
+                            {
+                              label: "关闭快速学习",
+                              value: "closeStudyBoost",
+                            },
+                            [7],
+                          )
+                        : l(
+                            { label: "开启快速学习", value: "openStudyBoost" },
+                            [7],
+                          );
                     };
                   let h = !1,
                     p = ["3-0"];
@@ -140,6 +157,7 @@
                         ? (r(getPetInfo()),
                           u(getSys()),
                           m(getSys()),
+                          mb(getPetInfo()),
                           t.on("blur", (e) => {
                             h
                               ? setTimeout(() => {
@@ -203,6 +221,10 @@
                         setSys({ name: "autoStudy", value: !0 });
                       else if ("closeAutoStudy" == o.data.value)
                         setSys({ name: "autoStudy", value: !1 });
+                      else if ("openStudyBoost" == o.data.value)
+                        setPetInfo({ otherOptions: { studyBoost: !0 } });
+                      else if ("closeStudyBoost" == o.data.value)
+                        setPetInfo({ otherOptions: { studyBoost: !1 } });
                       else
                         "quit" == o.data.value
                           ? app.quit()

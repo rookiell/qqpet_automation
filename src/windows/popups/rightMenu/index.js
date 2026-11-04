@@ -30,6 +30,7 @@
         },
         { label: "停止成长", value: "stopGrowth" },
         { label: "开启自动学习", value: "openAutoStudy" },
+        { label: "开启快速学习", value: "openStudyBoost" },
         { label: "退出宠物", value: "quit" },
       ],
       activeFatherValue: null,
