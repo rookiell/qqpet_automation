@@ -94,6 +94,14 @@ window.alert = (e) => {
 };
 var maxId = 0;
 
+// 商店挂价：原价 / 0.8，四舍五入成整数。
+// 商店展示（case 3）、购买判断与扣款（case 4）、未成熟退半价（case 5 的 costyb）
+// 全部走这一个函数，避免出现「显示 10 却只扣 8」这种对不上的情况。
+function shelfPrice(price) {
+  const p = Math.round(Number(price) / 0.8);
+  return p > 0 ? p : Number(price) || 0;
+}
+
 var shop1 = [
   //缺省值 growth:, wuli:, zhili:, meili:, limit_num:
   {
@@ -974,7 +982,9 @@ window.PETSendData = function (dataOl) {
       for (let k in shop) {
         s[k] = {
           ...shop[k],
-          price_yb: shop[k].price_yb / 0.8,
+          // 商店显示价 = 原价 / 0.8（加价 25%），四舍五入成整数
+          // （13→16、2→3，避免出现 16.25 / 2.5 这种小数）
+          price_yb: shelfPrice(shop[k].price_yb),
         };
       }
       result.fries = s;
@@ -995,6 +1005,8 @@ window.PETSendData = function (dataOl) {
           }
         }
         var yb = Number(getCookie("yb"));
+        // 实扣按商店挂价（原价 / 0.8 四舍五入），和 case 3 展示的价格一致
+        const pay = fish ? shelfPrice(fish.price_yb) : 0;
         let PondFish4 = getCookie("fishes") || "[]";
         console.log("PondFish4", PondFish4);
         PondFish4 = JSON.parse(PondFish4);
@@ -1002,7 +1014,10 @@ window.PETSendData = function (dataOl) {
         if (PondFish4.length >= 5) {
           result.result = 5;
           result.msg = "已经满了";
-        } else if (yb < fish.price_yb) {
+        } else if (!fish) {
+          result.result = 1;
+          result.msg = "购买失败!";
+        } else if (yb < pay) {
           result.result = 1;
           result.msg = "元宝不足!";
         } else {
@@ -1015,7 +1030,8 @@ window.PETSendData = function (dataOl) {
             stage: 1,
             time: 0,
             interval: fish.interval,
-            costyb: fish.price_yb,
+            // 记为实付价，未成熟收获时退的是一半实付价
+            costyb: pay,
             YB: fish.sell_price,
             quantity: fish.quantity,
             basequantity: fish.quantity,
@@ -1029,7 +1045,7 @@ window.PETSendData = function (dataOl) {
             siLiao: 0, //累计当前阶段使用饲料情况。每个饲料减少1个小时成长时间
           });
           setCookie("fishes", JSON.stringify(PondFish4), true);
-          setCookie("yb", Number(yb) - Number(fish.price_yb), true);
+          setCookie("yb", Number(yb) - pay, true);
         }
       } else {
         // paytype == 2  Q币购买, paytype == 3 Q点购买
@@ -1057,6 +1073,13 @@ window.PETSendData = function (dataOl) {
         }
       }
       if (inWhereI == 0 || inWhereI) {
+        // 收获前先按「当前时间 - 出生时间」刷新一次成长阶段。
+        // 页面开着不动的时候，cookie 里的 stage 还停在放进池塘时的值，
+        // 而 SWF 自己的计时器已经把鱼显示成成熟了；不刷新就会走
+        // 「未成熟只退半价」的分支（活鱼 8 元宝买来只退 4），
+        // 成熟鱼反而按半价结算。
+        fish = fishesGroup(fish).fishes;
+        PondFish5[inWhereI] = fish;
         if (fish.stage == 3) {
           result.yb = Number(fish.YB) * Number(fish.quantity);
         } else {
@@ -1123,6 +1146,9 @@ window.PETSendData = function (dataOl) {
       if (PondFishs8?.length) {
         let len = PondFishs8.length - 1;
         for (let k = len; k >= 0; k--) {
+          // 同 cmd 5：先按当前时间刷新成长阶段，否则开着的页面里
+          // 已经成熟的鱼会因为 stage 过时被当成「未成熟」跳过。
+          PondFishs8[k] = fishesGroup(PondFishs8[k]).fishes;
           if (PondFishs8[k].stage == 3) {
             //收获
             let ad = Number(PondFishs8[k].YB) * Number(PondFishs8[k].quantity);

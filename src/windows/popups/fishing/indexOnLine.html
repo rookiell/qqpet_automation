@@ -20,7 +20,13 @@
       warnOnUnsupportedContent: false,
       polyfills: true,
       letterbox: "off",
-      wmode: "transparent"
+      wmode: "transparent",
+      // 渔港的「元宝」数量、鱼名、提示语这类动态文本用的是设备字体
+      // （SWF 里写的是 SimSun / 微软雅黑），Ruffle 默认的 embedded 渲染器
+      // 只认内置的 Noto Sans，遇到中文字体名直接放弃 → 这些文字整段不显示。
+      // 换成 canvas 渲染器后交给系统字体兜底（macOS 苹方 / Windows 雅黑），
+      // 静态文本（对话框正文那种内嵌字形的）不受影响。
+      deviceFontRenderer: "canvas"
     };
   </script>
   <script src="../../js/ruffle/ruffle.js"></script>
