@@ -60,6 +60,12 @@
               Array.isArray(r) &&
               ("food" == o || "commodity" == o || "medicine" == o) &&
               (r = r.slice().sort(this.consumableCompare(o)));
+            // 打工列表按「可获得元宝」从低到高排，想挑收益高的就往后翻。
+            // 和上面一样必须在 slice 分页之前排，并且先 slice 一份不动原数组。
+            "store" == a &&
+              "work" == l &&
+              Array.isArray(r) &&
+              (r = r.slice().sort(this.workCompare()));
             let n = {
                 total: countMaxPageSize(r.length, t),
                 pageSize: t,
@@ -112,6 +118,21 @@
             } catch (e) {
               return [0, 0];
             }
+          }
+          // 打工的排序依据：这份工作能拿到的元宝（shop.work[key].yb）。
+          // 键可能是 "work*_bz" 也可能是 "_bz"，两种都兼容；取不到按 0 排在最前。
+          workSortKey(e) {
+            try {
+              let t = String(e).split("*").pop(),
+                s = shop.work && shop.work[t];
+              return s ? +s.yb || 0 : 0;
+            } catch (e) {
+              return 0;
+            }
+          }
+          workCompare() {
+            let e = this;
+            return (t, s) => e.workSortKey(t) - e.workSortKey(s);
           }
           consumableCompare(e) {
             let t = this;
