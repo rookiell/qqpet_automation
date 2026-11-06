@@ -332,6 +332,19 @@
 .c_m_actives:hover {
   box-shadow: 0px 0px 1px 3px rgba(0, 0, 0, 0.1);
 }
+/* 空位（这一页没有那么多东西）：隐藏，只占位 */
+.c_m_actives.emptySlot {
+  opacity: 0;
+}
+/* 现在打不了（等级或学历不够）的打工项：淡显，方便一眼分出能打的；
+   悬停时恢复正常，免得提示气泡里的字也跟着变淡看不清 */
+.c_m_actives.lockedDim {
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+.c_m_actives.lockedDim:hover {
+  opacity: 1;
+}
 .c_m_actives:hover .c_m_a_tip {
   display: inline-block;
 }

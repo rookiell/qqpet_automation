@@ -154,11 +154,12 @@
               v-for="(item, index) in activeList"
               :key="index"
               @click="useGood(item,index)"
-              :style="{opacity:item.name? 1:0}"
               :class="[
               doActiveMenu.value == 'task'?
               (item.isTake == 1? 'focusPress':'')
-              :  (item.name  ? 'focusPress':'')]"
+              :  (item.name  ? 'focusPress':''),
+              item.name ? '' : 'emptySlot',
+              item.locked ? 'lockedDim' : '']"
             >
               <div class="c_m_a_icon fccC f1" cando>
                 <img

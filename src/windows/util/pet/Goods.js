@@ -412,6 +412,9 @@
                   // 工作时长跟着「加速学习/旅游」开关走：关掉加速时恢复原版
                   // 30/80/120 分钟（shop 里存的是 6/16/24）。
                   overTime: this.workMinutes(o.useTime),
+                  // 现在打不了（等级或学历不够）：给界面用来置灰/降透明度，
+                  // 点下去主进程照样会拦下并提示原因。
+                  locked: this.workLocked(t[1]),
                   stateTime: 0,
                   obtain: {
                     yb: o.yb,
