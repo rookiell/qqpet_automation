@@ -50,11 +50,13 @@ function setCookie(key, value, save) {
     saveOpt[key] = value + "";
     saveTime = setTimeout(() => {
       console.log("saveOpt", saveOpt);
-      if (!saveInfoData) {
+      // saveInfoData 由 preload 注入。直接写 !saveInfoData 在变量根本
+      // 没声明时会抛 ReferenceError，用 typeof 判断更稳。
+      if (typeof saveInfoData !== "function") {
         return;
       }
       // 保存
-      saveInfoData && saveInfoData(JSON.parse(JSON.stringify(saveOpt)));
+      saveInfoData(JSON.parse(JSON.stringify(saveOpt)));
       saveOpt = {};
     }, 500);
   }
@@ -987,6 +989,9 @@ window.PETSendData = function (dataOl) {
           price_yb: shelfPrice(shop[k].price_yb),
         };
       }
+      // 注意：这里调整顺序对 SWF 自带的商店无效 —— 它在 FishShopData 里
+      // 会按自己的规则（sortBySelected / 等级）重排，实测传什么顺序都按它显示。
+      // 收益倒序只在自建商店（store.js）里生效。
       result.fries = s;
       result.totalpage = 1; //告知请求几次
       //判断是否和当前🐟数是一样的
@@ -1217,4 +1222,20 @@ window.PETSendData = function (dataOl) {
   console.log("ResultData", ResultData);
   player.PETEventOnReceived(JSON.stringify(ResultData));
   //console.log("PETSendData_end");
+};
+
+// ---------------------------------------------------------------------------
+// 给自建鱼苗商店（store.js）用的接口。
+// 商店里的价格/鱼表/存档读写都复用本文件的实现，避免两边算价不一致；
+// maxId 是这里的模块级变量，只能通过 nextId() 递增，外面拿不到引用。
+window.FishStoreApi = {
+  shop,
+  shelfPrice,
+  getCookie,
+  setCookie,
+  getPetInfoAgain,
+  nextId() {
+    maxId += 1;
+    return maxId;
+  },
 };

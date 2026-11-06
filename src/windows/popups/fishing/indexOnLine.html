@@ -31,6 +31,26 @@
   </script>
   <script src="../../js/ruffle/ruffle.js"></script>
   <script src="./indexOnLine.js"></script>
+  <link rel="stylesheet" href="./store.css?v=20261107">
+  <style>
+    /* 兜底：store.css 万一没加载或被缓存成旧版，至少保证关闭按钮可见、可点。
+       这段在 link 之后、选择器特异性与 store.css 相同的规则会覆盖旧样式，
+       同时保留 :hover 之类的加强规则生效。 */
+    #fsClose {
+      flex: 0 0 24px;
+      width: 24px;
+      height: 24px;
+      line-height: 19px;
+      text-align: center;
+      border: 2px solid #7a4c1c;
+      border-radius: 50%;
+      background: #fff6e2;
+      color: #7a4c1c;
+      font: 700 15px/19px "PingFang SC", "Microsoft YaHei", sans-serif;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+  </style>
 </head>
 
 <body>
@@ -38,6 +58,30 @@
     <embed id="hlyg" wmode="transparent" swLiveConnect="true" allowscriptaccess="always" name="hlyg" class="hlyg"
       src="./main.swf"> </embed>
   </div>
+
+  <!-- 鱼苗商店：SWF 里的商店有「确认支付」二次确认、数量也固定 1 条，
+       没法从 JS 改，所以在页面上叠一层自己的面板（见 store.js）。 -->
+  <div id="fsEntry" title="鱼苗商店">鱼苗</div>
+  <div id="fsMask">
+    <div id="fsPanel">
+      <div id="fsHead">
+        <span class="fs-title">鱼苗商店</span>
+        <span class="fs-yb">元宝：<b id="fsYb">0</b></span>
+        <span id="fsClose" title="关闭">×</span>
+      </div>
+      <div id="fsList"></div>
+      <div id="fsFoot">
+        <button class="fs-step" id="fsMinus">−</button>
+        <input id="fsNum" type="number" min="1" max="5" value="1">
+        <button class="fs-step" id="fsPlus">+</button>
+        <div class="fs-total" id="fsTotal">合计 <b>0</b> 元宝</div>
+        <button id="fsBuy">立即购买</button>
+      </div>
+      <div id="fsTip"></div>
+    </div>
+  </div>
+
+  <script src="./store.js?v=20261107"></script>
 </body>
 
 </html>
