@@ -17,6 +17,8 @@
           traysVertical = "top";
           traysAlign = "right";
           traysMenuTop = 1;
+          // 菜单项 value 顺序（渲染层 mounted 时发来），用来算 changeMenu 的下标
+          menuOrder = [];
           cleate(e) {
             let {
               nowPosition: t,
@@ -87,6 +89,27 @@
                           }));
                       }
                     },
+                    // changeMenu 的 where 是 1-based 下标。菜单项会随需求增减，
+                    // 写死数字很容易错位（加「开启自动学习」时就踩过一次），
+                    // 统一按渲染层发来的顺序查；查不到返回 [0]（渲染层会跳过）。
+                    // menuOrder 为空时（旧页面没带 order）退回默认顺序。
+                    w = (e) => {
+                      const order = n.menuOrder.length
+                          ? n.menuOrder
+                          : [
+                              "feeding",
+                              "smallGame",
+                              "openStore",
+                              "settingsAndHelp",
+                              "stopGrowth",
+                              "autoStudy",
+                              "fastActive",
+                              "studyBoost",
+                              "quit",
+                            ],
+                        i = order.indexOf(e);
+                      return i >= 0 ? [i + 1] : [0];
+                    },
                     r = (e) => {
                       let t = null;
                       for (let o in e.activeOption)
@@ -98,7 +121,7 @@
                         : e?.maxInfo?.stopGrowth
                           ? { label: "开启成长", value: "openGrowth" }
                           : { label: "停止成长", value: "stopGrowth" }),
-                        l(t, [5]));
+                        l(t, w("stopGrowth")));
                     },
                     u = (e) => {
                       e.doNotDisturb
@@ -108,9 +131,12 @@
                               value: "closeMute",
                               new: !0,
                             },
-                            [4, 1],
+                            [w("settingsAndHelp")[0], 1],
                           )
-                        : l({ label: "开启免打扰", value: "openMute" }, [4, 1]);
+                        : l(
+                            { label: "开启免打扰", value: "openMute" },
+                            [w("settingsAndHelp")[0], 1],
+                          );
                     },
                     // 自动学习开关：和「停止成长」同级，直接放在右键菜单里，
                     // 不用翻设置窗口（那里列表要滚动，找不到）。
@@ -122,11 +148,31 @@
                               label: "关闭自动学习",
                               value: "closeAutoStudy",
                             },
-                            [6],
+                            w("autoStudy"),
                           )
                         : l(
                             { label: "开启自动学习", value: "openAutoStudy" },
-                            [6],
+                            w("autoStudy"),
+                          );
+                    },
+                    // 加速学习/旅游：打开后用缩短过的时长（shop 里的现值，
+                    // 原版的 1/5），关掉按原版时长上课。状态存在
+                    // otherOptions.fastActive，Goods.getStudyInfo 算时长时读。
+                    mf = (e) => {
+                      e?.otherOptions?.fastActive
+                        ? l(
+                            {
+                              label: "关闭加速学习",
+                              value: "closeFastActive",
+                            },
+                            w("fastActive"),
+                          )
+                        : l(
+                            {
+                              label: "开启加速学习",
+                              value: "openFastActive",
+                            },
+                            w("fastActive"),
                           );
                     },
                     // 快速学习：一节课直接把本科目从当前进度读到研究生毕业，
@@ -139,11 +185,11 @@
                               label: "关闭快速学习",
                               value: "closeStudyBoost",
                             },
-                            [7],
+                            w("studyBoost"),
                           )
                         : l(
                             { label: "开启快速学习", value: "openStudyBoost" },
-                            [7],
+                            w("studyBoost"),
                           );
                     };
                   let h = !1,
@@ -154,10 +200,12 @@
                     },
                     rightMenu_h_bus_m: (e, o) => {
                       "mounted" == o.event
-                        ? (r(getPetInfo()),
+                        ? (Array.isArray(o.order) && (n.menuOrder = o.order),
+                          r(getPetInfo()),
                           u(getSys()),
                           m(getSys()),
                           mb(getPetInfo()),
+                          mf(getPetInfo()),
                           t.on("blur", (e) => {
                             h
                               ? setTimeout(() => {
@@ -225,6 +273,10 @@
                         setPetInfo({ otherOptions: { studyBoost: !0 } });
                       else if ("closeStudyBoost" == o.data.value)
                         setPetInfo({ otherOptions: { studyBoost: !1 } });
+                      else if ("openFastActive" == o.data.value)
+                        setPetInfo({ otherOptions: { fastActive: !0 } });
+                      else if ("closeFastActive" == o.data.value)
+                        setPetInfo({ otherOptions: { fastActive: !1 } });
                       else
                         "quit" == o.data.value
                           ? app.quit()
@@ -252,7 +304,7 @@
                         event: "pet",
                         name: n.name,
                         fn: (e) => {
-                          r(e);
+                          (r(e), mb(e), mf(e));
                         },
                       },
                       {

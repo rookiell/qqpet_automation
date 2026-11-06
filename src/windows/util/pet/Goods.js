@@ -363,7 +363,9 @@
                   key: s,
                   keyName: t[1],
                   icon: `../assets/img_res/${o.type}/${s}.png`,
-                  overTime: o.useTime,
+                  // 工作时长跟着「加速学习/旅游」开关走：关掉加速时恢复原版
+                  // 30/80/120 分钟（shop 里存的是 6/16/24）。
+                  overTime: this.workMinutes(o.useTime),
                   stateTime: 0,
                   obtain: {
                     yb: o.yb,
@@ -385,7 +387,7 @@
                     },
                     workTime: {
                       label: "工作时长：",
-                      value: o.useTime + "分钟",
+                      value: this.workMinutes(o.useTime) + "分钟",
                     },
                   },
                 };
@@ -417,6 +419,27 @@
           }
           activeWork(e) {
             return this.callUseActive({ type: "work", val: e });
+          }
+          // 「加速学习/旅游」开关（右键菜单）：
+          // shop 里的 classTime / useTime 记的都是缩短过的值（原版的 1/5，
+          // 见 8c0ea44），关掉加速时按原版时长上课、打工（小学一节课 9→45
+          // 分钟，搬砖 6→30 分钟），打开时用现值。旅游接上后同样走这里。
+          activeTimeScale() {
+            try {
+              return getPetInfoOne("fastActive", "otherOptions") ? 1 : 5;
+            } catch (e) {
+              return 1;
+            }
+          }
+          activeMinutes(e) {
+            let t = Number(e) || 0;
+            return Math.max(1, Math.round(t * this.activeTimeScale()));
+          }
+          studyMinutes(e) {
+            return this.activeMinutes(e);
+          }
+          workMinutes(e) {
+            return this.activeMinutes(e);
           }
           getStudyData() {
             let e = [],
@@ -451,14 +474,14 @@
                     name: "科目：" + o.object,
                     keyName: t[1],
                     icon: `../assets/img_res/${o.type}/${s}.png`,
-                    overTime: o.classTime,
+                    overTime: this.studyMinutes(o.classTime),
                     stateTime: 0,
                     obtain: {},
                     valueList: {
                       nowSchool: { label: "当前阶段：", value: o.school },
                       workTime: {
                         label: "学习时长：",
-                        value: o.classTime + "分钟",
+                        value: this.studyMinutes(o.classTime) + "分钟",
                       },
                       studied: { label: "已学课时：", value: a + "节" },
                       residue: {

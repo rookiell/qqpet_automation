@@ -5,8 +5,11 @@
     };
   const a = {
     data: () => ({
+      // id 是给主进程定位用的稳定标识：value 会随开关状态改
+      // （openAutoStudy ⇄ closeAutoStudy），不能拿来当索引。
       menu: [
         {
+          id: "feeding",
           label: "喂养宠物",
           value: "feeding",
           fn: 1,
@@ -16,9 +19,10 @@
             { label: "吃药", value: "cure" },
           ],
         },
-        { label: "小游戏", value: "smallGame" },
-        { label: "商城", value: "openStore" },
+        { id: "smallGame", label: "小游戏", value: "smallGame" },
+        { id: "openStore", label: "商城", value: "openStore" },
         {
+          id: "settingsAndHelp",
           label: "设置及帮助",
           value: "settingsAndHelp",
           children: [
@@ -28,10 +32,17 @@
           ],
           fn: 1,
         },
-        { label: "停止成长", value: "stopGrowth" },
-        { label: "开启自动学习", value: "openAutoStudy" },
-        { label: "开启快速学习", value: "openStudyBoost" },
-        { label: "退出宠物", value: "quit" },
+        { id: "stopGrowth", label: "停止成长", value: "stopGrowth" },
+        { id: "autoStudy", label: "开启自动学习", value: "openAutoStudy" },
+        {
+          id: "fastActive",
+          // 菜单宽只有 130px，「开启加速学习/旅游」9 个字会换行压住下一项，
+          // 所以文案只留「加速学习」；旅游以后接上会共用这个开关。
+          label: "开启加速学习",
+          value: "openFastActive",
+        },
+        { id: "studyBoost", label: "开启快速学习", value: "openStudyBoost" },
+        { id: "quit", label: "退出宠物", value: "quit" },
       ],
       activeFatherValue: null,
       activeSunValue: null,
@@ -96,7 +107,10 @@
             }
           }
         }),
-        t({ event: "mounted" }));
+        // 把菜单项顺序一起发给主进程：菜单项会随需求增减，主进程那边
+        // changeMenu 的下标是按顺序算的，写死数字很容易错位（踩过坑）。
+        // 用 id 而不是 value，因为开关类菜单项的 value 会随状态变化。
+        t({ event: "mounted", order: this.menu.map((e) => e.id || e.value) }));
     },
     methods: {
       getWhere: (e) => e - 1,
