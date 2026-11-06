@@ -4,6 +4,11 @@
         module = __webpack_require__.nmd(module);
         const _require = eval("require"),
           { shop } = _require("./shop.js");
+        // 等级换算只在 maxInfo.level 缺失时兜底用，读不到也不要影响模块加载。
+        let LevelRef = null;
+        try {
+          LevelRef = _require("./level.js").Level;
+        } catch (e) {}
         class Goods {
           storeGoods = {
             food: [],
@@ -60,8 +65,9 @@
               Array.isArray(r) &&
               ("food" == o || "commodity" == o || "medicine" == o) &&
               (r = r.slice().sort(this.consumableCompare(o)));
-            // 打工列表按「可获得元宝」从低到高排，想挑收益高的就往后翻。
-            // 和上面一样必须在 slice 分页之前排，并且先 slice 一份不动原数组。
+            // 打工列表：现在能打的排前面、按「可获得元宝」从高到低；打不了的
+            // （等级或学历不够）沉到后面。和上面一样必须在 slice 分页之前排，
+            // 并且先 slice 一份不动原数组。
             "store" == a &&
               "work" == l &&
               Array.isArray(r) &&
@@ -120,7 +126,7 @@
             }
           }
           // 打工的排序依据：这份工作能拿到的元宝（shop.work[key].yb）。
-          // 键可能是 "work*_bz" 也可能是 "_bz"，两种都兼容；取不到按 0 排在最前。
+          // 键可能是 "work*_bz" 也可能是 "_bz"，两种都兼容；取不到按 0 算。
           workSortKey(e) {
             try {
               let t = String(e).split("*").pop(),
@@ -130,9 +136,49 @@
               return 0;
             }
           }
+          // 宠物当前等级：优先用 maxInfo.level（存档里已经算好的），
+          // 还没算过（空/0）就按成长值现算，别把等级误当成 1。
+          petLevel() {
+            let e = +getPetInfoOne("level", "maxInfo");
+            if (e > 0) return e;
+            try {
+              return (
+                +LevelRef.getNowLevel(+getPetInfoOne("growth", "info")).level || 1
+              );
+            } catch (t) {
+              return 1;
+            }
+          }
+          // 这份工作现在能不能打：等级够 need，且学历够 education（各科目
+          // 的累计学习值 ≥ 要求的阈值，9 小学 / 20 中学 / 40 大学 / 95 研究生）。
+          // 判定不出来（数据缺失、异常）时当作不可打，排到后面去。
+          workLocked(e) {
+            try {
+              let t = String(e).split("*").pop(),
+                s = shop.work && shop.work[t];
+              if (!s) return !0;
+              if (+s.need > 0 && this.petLevel() < +s.need) return !0;
+              let o = JSONto(getPetInfoOne("study", "activeValue")) || {};
+              for (let e in s.education || {})
+                if (+s.education[e] > 0 && +o[e] < +s.education[e]) return !0;
+              return !1;
+            } catch (e) {
+              return !0;
+            }
+          }
+          // 排序：现在能打的全排前面、组内按元宝从多到少；打不了的（等级或
+          // 学历不够）沉到后面，组内同样按元宝从多到少（跟鱼苗商店一致）。
           workCompare() {
             let e = this;
-            return (t, s) => e.workSortKey(t) - e.workSortKey(s);
+            return (t, s) => {
+              let o = e.workLocked(t),
+                a = e.workLocked(s);
+              return o != a
+                ? o
+                  ? 1
+                  : -1
+                : e.workSortKey(s) - e.workSortKey(t);
+            };
           }
           consumableCompare(e) {
             let t = this;
