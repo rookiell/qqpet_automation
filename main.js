@@ -82,6 +82,9 @@ const createWindow = async () => {
 // macOS: 不加载 PepFlash DLL（使用 Ruffle WASM 替代）
 app.commandLine.appendSwitch("disable-site-isolation-trials");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+// 本地渔港/后花园页面走 http 服务加载，Chromium 会缓存 html/css/js，
+// 改完代码窗口里还是旧页面（改了没生效），排查很费时间。直接关掉 HTTP 缓存。
+app.commandLine.appendSwitch("disable-http-cache");
 // 渔场/后花园等弹窗以 file:// 加载，并用 iframe 加载本地 http 服务里的 SWF。
 // 不加这个开关时，file:// 页面无法访问 http:// iframe 的 contentWindow，
 // 宠物数据（元宝、鱼苗等）就无法注入到 SWF，导致无法购买/投放鱼苗。

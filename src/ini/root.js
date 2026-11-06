@@ -1,4 +1,13 @@
 const _require = eval("require");
+// 本地源码改得勤（特别是 html/css/js），一旦被 Chromium 缓存，
+// 改了代码窗口里却还是旧页面，很难排查。页面类资源禁用缓存。
+const PAGE_NO_CACHE = {
+  setHeaders: (res, p) => {
+    if (/\.(?:html?|js|css|json)$/i.test(p)) {
+      res.setHeader("Cache-Control", "no-store, must-revalidate");
+    }
+  },
+};
 // 本机无法进行js与flash交互有安全机制问题， 通过开端口形式进行flash页面引入
 const createMain = (fn, post, ip, fileName, none) => {
   if (none) {
@@ -14,7 +23,7 @@ const createMain = (fn, post, ip, fileName, none) => {
   });
   // fileName = 'u'
   let pattt = path.join(__dirname, "../../src");
-  app.use("/" + fileName, express.static(pattt));
+  app.use("/" + fileName, express.static(pattt, PAGE_NO_CACHE));
   let aotuIp = getLocalIP();
   var server = app.listen(post, ip || aotuIp[0], function () {
     var host = server.address().address;
@@ -245,7 +254,7 @@ global.openLocalHost = (fn) => {
   let fileName = upDownArr(shuffleArr(fileNames)).join("");
   // fileName = 'u'
   let pattt = path.join(__dirname, "../../src");
-  app.use("/" + fileName, express.static(pattt));
+  app.use("/" + fileName, express.static(pattt, PAGE_NO_CACHE));
   let aotuIp = getLocalIP();
   let post = "33385";
   var server = app.listen(post, aotuIp[0], function () {
