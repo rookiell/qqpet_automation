@@ -255,17 +255,41 @@ global.openLocalHost = (fn) => {
   // fileName = 'u'
   let pattt = path.join(__dirname, "../../src");
   app.use("/" + fileName, express.static(pattt, PAGE_NO_CACHE));
-  let aotuIp = getLocalIP();
-  let post = "33385";
-  var server = app.listen(post, aotuIp[0], function () {
-    var host = server.address().address;
-    var port = server.address().port;
-    url = {
-      host: host,
-      port: port,
-      fileName: fileName,
-    };
-    fn(url);
-    console.log("express at http://%s:%s/%s", host, port, fileName);
-  });
+  // 这个服务只给本机 iframe 用（渔港、卧室小游戏），绑回环地址就够了。
+  // 以前绑的是启动时探测到的网卡 IP：待机/休眠后 Wi-Fi 重连、切网或者开 VPN，
+  // 机器地址就变了，而 iframe 的地址是启动时拼好的，于是连不上——
+  // 症状正是渔港只剩外层那两个 HTML 图标、SWF 区域一片空白。
+  // 127.0.0.1 不随网络变化，能根治这一类问题。
+  const LOOPBACK = "127.0.0.1";
+  const post = "33385";
+  const listen = (port, ip, onFail) => {
+    const server = app.listen(port, ip);
+    let bound = false;
+    server.once("error", (err) => {
+      // 已经起来了之后的运行时错误不该再起一个新服务，只处理绑定失败。
+      if (bound) return;
+      try {
+        server.close();
+      } catch (e) {}
+      console.log("local host listen failed:", ip, port, err && err.code);
+      onFail && onFail();
+    });
+    server.once("listening", () => {
+      bound = true;
+      url = {
+        host: server.address().address,
+        port: server.address().port,
+        fileName: fileName,
+      };
+      fn(url);
+      console.log("express at http://%s:%s/%s", url.host, url.port, fileName);
+    });
+  };
+  // 端口被占（比如上一次的进程没退干净）就换个随机端口，实在不行退回网卡 IP。
+  listen(post, LOOPBACK, () =>
+    listen(0, LOOPBACK, () => {
+      let aotuIp = getLocalIP();
+      listen(post, aotuIp[0], () => {});
+    }),
+  );
 };

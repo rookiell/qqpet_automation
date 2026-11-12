@@ -720,6 +720,15 @@ window.addEventListener("load", (event) => {
   console.log("load");
   getUpLoad();
   openGame();
+  // 待机久了再开窗口，偶尔会碰上 Ruffle 没接管 <embed>：
+  // 页面只剩外层那两个 HTML 图标，SWF 区域全空。8 秒后还没接管就重建一次。
+  // 两种情况都不重建：已经换成了 Ruffle 的播放器标签，或者 ExternalInterface 已经能用。
+  setTimeout(() => {
+    if (isPlayerUpgraded() || isPlayerReady(document.getElementById("hlyg")))
+      return;
+    rebuildPlayer();
+    openGame();
+  }, 8000);
   // if (await getUpLoad()) {
   //   console.log("window.getPetInfoFromMain");
   //   setInterval(() => {
@@ -735,31 +744,86 @@ window.addEventListener("load", (event) => {
   // }
 });
 
+const PLAYER_SRC = "./main.swf";
+const isPlayerReady = (el) =>
+  !!(el && typeof el.Fish_openGame === "function");
+// Ruffle 会把原生的 <embed> 换掉；还是 embed 就说明这次没被接管。
+const isPlayerUpgraded = () => {
+  const el = document.getElementById("hlyg");
+  return !el || String(el.tagName).toLowerCase() !== "embed";
+};
+// 没被接管时用 Ruffle 的显式 API 重建播放器。走这条路而不是重设 <embed> 的 src，
+// 是因为原生标签一旦错过 polyfill 的接管时机，再改属性也不会重新触发。
+let rebuildI = 0;
+const rebuildPlayer = () => {
+  if (rebuildI++ >= 2) return;
+  const wrap = document.querySelector("div.hlyg");
+  const newest =
+    window.RufflePlayer && window.RufflePlayer.newest
+      ? window.RufflePlayer.newest()
+      : null;
+  if (!wrap || !newest) return;
+  try {
+    wrap.innerHTML = "";
+    const p = newest.createPlayer();
+    p.id = "hlyg";
+    p.className = "hlyg";
+    p.style.width = "100%";
+    p.style.height = "100%";
+    p.style.display = "block";
+    wrap.appendChild(p);
+    p.load({ url: PLAYER_SRC + "?r=" + Date.now() });
+    player = p;
+    console.log("rebuildPlayer");
+  } catch (e) {
+    console.log("rebuildPlayer error", e);
+  }
+};
+
 let getupI = 0;
 // SWF 启动依赖页面调用 ExternalInterface 回调 Fish_openGame(true)，
 // 否则 toolbar（含“投放”入口）和池塘数据都不会初始化。
-let openGameI = 0;
+let openGameStart = 0;
+// 重建播放器后会再起一条轮询，两条都成功就会重复初始化 toolbar，这里保证只调一次。
+let openGameDone = false;
 const openGame = () => {
-  if (openGameI++ > 600) return;
+  if (openGameDone) return;
+  if (!openGameStart) openGameStart = Date.now();
+  const past = Date.now() - openGameStart;
+  // 最多等 2 分钟。原来是 600 次 ×50ms = 30 秒到点就永久放弃，
+  // 而冷启动（wasm 编译 + 切设备字体）偶尔会超过 30 秒，一放弃就一直白着。
+  if (past > 120000) return;
   const el = document.getElementById("hlyg");
   if (
     el &&
-    typeof el.Fish_openGame === "function" &&
-    (typeof el.PETEventOnReceived === "function" || openGameI > 200)
+    isPlayerReady(el) &&
+    (typeof el.PETEventOnReceived === "function" || past > 10000)
   ) {
     console.log("Fish_openGame");
-    el.Fish_openGame(true);
-    return;
+    openGameDone = true;
+    try {
+      el.Fish_openGame(true);
+      player = el;
+      // 外层（index.js）盯着这个标记，没等到就重载一次 iframe。
+      window.__fishReady = true;
+      return;
+    } catch (e) {
+      openGameDone = false;
+      console.log("Fish_openGame error", e);
+    }
   }
   setTimeout(openGame, 50);
 };
 const getUpLoad = () => {
-  if (getupI++ > 1000) return;
-  console.log(
-    "window?.selfeLoad",
-    window?.selfeLoad,
-    typeof window.getPetInfoFromMain,
-  );
+  const past = getupI++ * 20;
+  if (past > 120000) return;
+  // 原来每 10ms 打一行日志，一次加载能刷满控制台，改成每秒一行。
+  if (past % 1000 === 0)
+    console.log(
+      "window?.selfeLoad",
+      window?.selfeLoad,
+      typeof window.getPetInfoFromMain,
+    );
   if (window?.selfeLoad) {
     console.log("ok");
     window.getPetInfoFromMain();
@@ -767,7 +831,7 @@ const getUpLoad = () => {
   } else {
     setTimeout(() => {
       return getUpLoad();
-    }, 10);
+    }, 20);
   }
 };
 //错误处理
