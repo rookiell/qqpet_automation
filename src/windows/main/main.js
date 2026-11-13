@@ -11,51 +11,6 @@
           control = _require("../popups/control/main.js"),
           tip = _require("../popups/tip/main.js");
         let saveSpeakData = null;
-        // 自动学习：学习结束会弹一个「我学习回来了」的礼包气泡，物品在结算那一刻
-        // 就已经入库了，气泡关掉等同于「领取完」——接住这个时机自动再上一节课。
-        // 开关：右键菜单 > 自动学习（getSys("autoStudy")）。
-        global.onSpeakClosed = () => {
-          try {
-            if (!getSys("autoStudy")) return;
-            const pet = global.petControl || {},
-              pending =
-                pet.GrowUp &&
-                pet.GrowUp.takeStudyPending &&
-                pet.GrowUp.takeStudyPending();
-            if (!pending) return;
-            // 超过 5 分钟没人理的礼包（比如被别的气泡顶掉）就丢弃，
-            // 免得几分钟后突然自己去上课。
-            if (!pending.at || Date.now() - pending.at > 3e5) return;
-            const info = getPetInfo(),
-              active = info?.activeOption || {};
-            // 正忙着 / 生病 / 暂停成长 时不续课
-            if (active.study || active.work || active.trip || active.ill) return;
-            if (info?.maxInfo?.stopGrowth) return;
-            // 快速学习下一节课就能把一门科目读完，所以这里除了续当前科目，
-            // 还要在本科目已「学无止境」时自动换到下一门还没读完的科目。
-            let next = pending;
-            try {
-              const list = pet.Goods.getStudyData() || [],
-                remain = (k) => {
-                  const v = String(k).split("-").pop();
-                  return pet.GrowUp && pet.GrowUp.studyRemain
-                    ? pet.GrowUp.studyRemain(v)
-                    : 1;
-                },
-                keyName =
-                  list.find(
-                    (k) =>
-                      String(k).endsWith("-" + pending.value) && remain(k) > 0,
-                  ) || list.find((k) => remain(k) > 0),
-                fresh =
-                  keyName && pet.Goods.getStudyInfo({ goodName: keyName });
-              fresh && (next = fresh);
-            } catch (e) {}
-            pet.Goods.activeStudy(next);
-          } catch (e) {
-            console.log("autoStudy err", e);
-          }
-        };
         global.openSpeak = (e) => {
           saveSpeakData = e;
         };
@@ -142,13 +97,6 @@
                               communication: c = null,
                               change: r = !1,
                             } = e;
-                            // 免打扰模式下礼包气泡会被 openSpeak 拦住不弹，
-                            // 那样永远等不到 onSpeakClosed，这里补一次触发。
-                            getSys("doNotDisturb") &&
-                              "state" === c?.[0] &&
-                              ("overStudy" === c?.[1] ||
-                                "overStudyUp" === c?.[1]) &&
-                              setTimeout(() => global.onSpeakClosed(), 1200);
                             (i &&
                               (o || c) &&
                               openSpeak({

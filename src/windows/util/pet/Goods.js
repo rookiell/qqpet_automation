@@ -409,8 +409,8 @@
                   key: s,
                   keyName: t[1],
                   icon: `../assets/img_res/${o.type}/${s}.png`,
-                  // 工作时长跟着「加速学习/旅游」开关走：关掉加速时恢复原版
-                  // 30/80/120 分钟（shop 里存的是 6/16/24）。
+                  // 打工时长固定是原版 30/80/120 分钟（shop 里存的是 6/16/24），
+                  // 不受「加速学习」开关影响。
                   overTime: this.workMinutes(o.useTime),
                   // 现在打不了（等级或学历不够）：给界面用来置灰/降透明度，
                   // 点下去主进程照样会拦下并提示原因。
@@ -469,26 +469,27 @@
           activeWork(e) {
             return this.callUseActive({ type: "work", val: e });
           }
-          // 「加速学习/旅游」开关（右键菜单）：
-          // shop 里的 classTime / useTime 记的都是缩短过的值（原版的 1/5，
-          // 见 8c0ea44），关掉加速时按原版时长上课、打工（小学一节课 9→45
-          // 分钟，搬砖 6→30 分钟），打开时用现值。旅游接上后同样走这里。
+          // 右键菜单的「加速学习」只作用于学习：打开时一节课用 shop 里的
+          // 现值（原版的 1/5，小学 9 分钟），关掉恢复原版 45 分钟。
+          // 打工固定用原版时长（30/80/120 分钟），不跟这个开关走。
           activeTimeScale() {
             try {
               return getPetInfoOne("fastActive", "otherOptions") ? 1 : 5;
             } catch (e) {
-              return 1;
+              return 5;
             }
           }
-          activeMinutes(e) {
-            let t = Number(e) || 0;
-            return Math.max(1, Math.round(t * this.activeTimeScale()));
+          activeMinutes(e, scale) {
+            let t = Number(e) || 0,
+              s = Number(scale) > 0 ? Number(scale) : this.activeTimeScale();
+            return Math.max(1, Math.round(t * s));
           }
           studyMinutes(e) {
             return this.activeMinutes(e);
           }
+          // 打工时长恒定 = shop 现值 ×5（原版），和「加速学习」开关无关。
           workMinutes(e) {
-            return this.activeMinutes(e);
+            return this.activeMinutes(e, 5);
           }
           getStudyData() {
             let e = [],

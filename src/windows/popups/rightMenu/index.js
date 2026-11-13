@@ -6,7 +6,7 @@
   const a = {
     data: () => ({
       // id 是给主进程定位用的稳定标识：value 会随开关状态改
-      // （openAutoStudy ⇄ closeAutoStudy），不能拿来当索引。
+      // （openFastActive ⇄ closeFastActive），不能拿来当索引。
       menu: [
         {
           id: "feeding",
@@ -33,15 +33,14 @@
           fn: 1,
         },
         { id: "stopGrowth", label: "停止成长", value: "stopGrowth" },
-        { id: "autoStudy", label: "开启自动学习", value: "openAutoStudy" },
         {
           id: "fastActive",
           // 菜单宽只有 130px，「开启加速学习/旅游」9 个字会换行压住下一项，
-          // 所以文案只留「加速学习」；旅游以后接上会共用这个开关。
+          // 所以文案只留「加速学习」。打开后一节课用缩短的时长，并在下课
+          // 时把本科目剩余课时一次结算完；只作用于学习，打工时长不变。
           label: "开启加速学习",
           value: "openFastActive",
         },
-        { id: "studyBoost", label: "开启快速学习", value: "openStudyBoost" },
         { id: "quit", label: "退出宠物", value: "quit" },
       ],
       activeFatherValue: null,
@@ -83,7 +82,7 @@
                 (this.sunBkBodyStyle.transform =
                   "translateX(100%) translateY(-40%)"),
                 // 宠物本体右键时不显示「退出宠物」；按 value 找，别写死下标
-                // （菜单里加过「开启自动学习」，写死的 5 会误伤新项）
+                // （菜单项会随需求增减，写死的下标早晚会误伤新项）
                 (this.menu.find((e) => "quit" == e.value).unShow = !0));
             }
             seeApp();

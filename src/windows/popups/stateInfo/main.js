@@ -95,7 +95,13 @@
                       },
                       "stateInfo_bus-upData": (e, t) => {
                         "openPetFile" != t.type
-                          ? setPetInfo(t)
+                          ? (setPetInfo(t),
+                            // 刚打开贴心宝贝时先照料一次，不用等下个整分钟；
+                            // 关掉的时候不用做什么。
+                            t.otherOptions &&
+                              t.otherOptions.sweetHeart &&
+                              petControl.GrowUp &&
+                              petControl.GrowUp.sweetHeartAuto())
                           : infoCard.show
                             ? infoCard.doClose()
                             : infoCard.cleate();

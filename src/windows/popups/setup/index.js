@@ -131,7 +131,6 @@
         clip: !1,
         doNotDisturb: !1,
         stopGrowth: !1,
-        autoStudy: !1,
         screenshot: [],
         god: [],
         openStting: [],

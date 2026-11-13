@@ -182,10 +182,7 @@
             (global.nextActive && global.nextActive({ name: "speak" }),
               this.closeTimeOut && clearTimeout(this.closeTimeOut),
               this.window.close(),
-              (this.show = !1),
-              // 气泡关掉（点按钮 / 超时）后通知一次，自动学习靠这里判断
-              // 「学习礼包领取完了」，再决定要不要续课。
-              global.onSpeakClosed && global.onSpeakClosed());
+              (this.show = !1));
           }
         }
         let main = new mainClass();

@@ -12,10 +12,12 @@
           growTime = 6e4;
           intervalTime = null;
           normalGrowthRate = 260;
-          // 「快速学习」：开启后一节课直接把本科目从当前进度一路读到研究生
-          // 毕业（学无止境），不再一阶段一阶段地读。学习值、属性、礼包一次性
-          // 发放；属性按各阶段真实课时分别累加（小学 15、中学 25、大学 45、
-          // 研究生 85…），而不是拿当前阶段的值乘总课时。
+          // 「加速学习」（右键菜单，otherOptions.fastActive）：开启后一节课直接把
+          // 本科目从当前进度一路读到研究生毕业（学无止境），不再一阶段一阶段地
+          // 读。学习值、属性、礼包一次性发放；属性按各阶段真实课时分别累加
+          // （小学 15、中学 25、大学 45、研究生 85…），而不是拿当前阶段的值乘总
+          // 课时。同一个开关还会把单节课时长压到 shop 里的现值（见
+          // Goods.studyMinutes），两件事一起生效。
           // 消耗没有跟着放大（一节课还是扣一节课的饥饿/清洁），按需求保留。
           // 已经「学无止境」时退回一节课的正常结算。
           studyShop = void 0;
@@ -28,6 +30,19 @@
               }
             }
             return this.studyShop;
+          }
+          // 完整商品表，贴心宝贝挑物品时用（学习那份只缓存了 shop.study）。
+          shopTable = void 0;
+          getShopTable() {
+            if (void 0 === this.shopTable) {
+              try {
+                const m = eval("require")("./shop.js");
+                this.shopTable = (m && m.shop) || null;
+              } catch (err) {
+                this.shopTable = null;
+              }
+            }
+            return this.shopTable;
           }
           // 该科目还差多少节课才「学无止境」（研究生读完）。<= 0 即读完。
           studyRemain(e) {
@@ -43,6 +58,8 @@
             }
           }
           // 返回 { step, obtain }；step = 1 表示按一节课正常结算。
+          // 「加速学习」打开时，这一节把本科目剩余课时一次结算完（step 就是
+          // 剩余总课时数），同时属性按各阶段真实课时累加。
           studyPlan(e, t) {
             const one = { step: 1, obtain: null };
             if (!this.isStudyBoost()) return one;
@@ -75,9 +92,15 @@
               return one;
             }
           }
+          // 右键菜单的「加速学习」是唯一开关（otherOptions.fastActive）。
+          // 老的 otherOptions.studyBoost 是合并前「快速学习」的独立开关，
+          // 只做兼容读取：老存档里它为 true 时行为不变，新写入一律走 fastActive。
           isStudyBoost() {
             try {
-              return !!getPetInfoOne("studyBoost", "otherOptions");
+              return (
+                !!getPetInfoOne("fastActive", "otherOptions") ||
+                !!getPetInfoOne("studyBoost", "otherOptions")
+              );
             } catch (e) {
               return !1;
             }
@@ -119,8 +142,6 @@
           }
           addMax = 0;
           addMaxi = 1;
-          // 刚下课待续的科目（{...val, at}），礼包气泡关掉后由自动学习消费
-          studyPending = null;
           GrowUpMain(e = {}) {
             let { first: t, unGrow: o = !1 } = e,
               i = getPetInfo();
@@ -186,6 +207,9 @@
                 ));
             }
             setPetInfo({ info: l, activeOption: r, activeValue: s });
+            // 每分钟这一轮扣完饥饿/清洁后，看看要不要帮它吃点/洗一下。
+            // 停止成长和死亡在上面已经 return，不会走到这里。
+            this.sweetHeartAuto();
           }
           getEffectGrowthRate(e) {
             let t = [0, 0, 0, 0, 0];
@@ -242,11 +266,113 @@
           doGetMS(e, t) {
             return (e / t) | 0;
           }
-          sweetHeartAuto() {}
-          // 取走"刚下课"的科目（一次性）。自动学习用它决定续哪门课。
-          takeStudyPending() {
-            let e = this.studyPending;
-            return ((this.studyPending = null), e);
+          // 「贴心宝贝」（otherOptions.sweetHeart）的自动照料：
+          // 饥饿掉到 720 以下自动用背包里的食物，清洁掉到 1080 以下自动用清洁
+          // 品——阈值和 State.determineHealth 的判定保持一致。
+          // 挑物品的规则：加上去不能让任何一项属性超过上限（避免溢出浪费），
+          // 同样合格时选主属性最大的，一次补到最多、减少消耗次数；一次最多
+          // 连用 3 件。走 Goods.useConsumables 而不是直接改数值，背包扣减、
+          // 存档落盘、状态回调都沿用和手动喂食同一条链路。
+          sweetHeartSayAt = 0;
+          sweetHeartAuto() {
+            try {
+              let info = getPetInfo();
+              if (!info?.otherOptions?.sweetHeart) return;
+              // 生病 / 死亡 / 停止成长 时不接管，交给原有逻辑
+              if (info.activeOption?.ill) return;
+              if (0 == info.info?.health) return;
+              if (info.maxInfo?.stopGrowth) return;
+              let pet = global.petControl;
+              if (!pet?.Goods?.useConsumables) return;
+              // 先吃后洗：饿得比脏得快；一次只处理一项，另一项下一分钟再看
+              let s =
+                this.sweetHeartFeed(pet, "food", "hunger", "starve", 720) ||
+                this.sweetHeartFeed(pet, "commodity", "clean", "clean", 1080);
+              if (!s) return;
+              // 连用了好几十件小道具时，别每分钟都弹一次，5 分钟内只提示一次
+              let now = Date.now();
+              if (this.sweetHeartSayAt && now - this.sweetHeartSayAt < 3e5)
+                return;
+              ((this.sweetHeartSayAt = now), (this.oldEvent = null));
+              this.callBackState({
+                type: "normal",
+                // 第一人称、和手动喂食的台词区分开，一眼能看出是贴心宝贝干的。
+                // 不传 change：那会强制把托盘图标刷成普通图标，学习/打工时
+                // 正显示带等级的头像图标，不该被这条消息顶掉。
+                msg:
+                  "food" == s.kind
+                    ? `[host]，肚子饿啦，吃了${s.name}~`
+                    : `[host]，身上脏啦，用${s.name}洗了一下~`,
+                speak: !0,
+              });
+            } catch (e) {
+              console.log("sweetHeartAuto err", e);
+            }
+          }
+          // 返回 { name, count } 表示用了东西，null 表示没动
+          sweetHeartFeed(pet, cat, field, attr, line) {
+            let used = 0,
+              last = null;
+            for (let n = 0; n < 3; n++) {
+              let info = getPetInfo();
+              if (!(isNumber(info.info?.[field]) < line)) break;
+              let pick = this.sweetHeartPick(pet, cat, attr, info);
+              if (!pick) break;
+              let r = pet.Goods.useConsumables({
+                // 必须把商品本身的字段（starve / clean / type）一起带上：
+                // State.useConsumables 是遍历传入对象的属性来加值的，只给
+                // keyName 和 num 的话物品会被扣掉但一点效果都没有。
+                ...pick.item,
+                keyName: pick.keyName,
+                // 这里的 num 是「背包里这一堆的数量」，useConsumables 用它拼
+                // keyName-num 定位数组元素，然后减 1 写回，不能传成 1
+                num: pick.num,
+              });
+              if (!r || r.overType) break;
+              (used++, (last = pick));
+            }
+            return used ? { name: last.name, count: used, kind: cat } : null;
+          }
+          // 在背包对应分类里挑一件「用下去不会顶破上限」的物品，主属性大的优先
+          sweetHeartPick(pet, cat, attr, info) {
+            let list = (pet.Goods.storeGoods && pet.Goods.storeGoods[cat]) || [],
+              table = (this.getShopTable() && this.getShopTable()[cat]) || {},
+              best = null;
+            for (let i = 0; i < list.length; i++) {
+              let raw = String(list[i]),
+                at = raw.lastIndexOf("-");
+              if (at <= 0) continue;
+              let keyName = raw.slice(0, at),
+                num = +raw.slice(at + 1);
+              if (!(num > 0)) continue;
+              let it = table[keyName];
+              if (!it) continue;
+              let add = isNumber(it[attr]);
+              if (add <= 0) continue;
+              // 食物可能同时加清洁、清洁品也可能同时加饥饿，两边都要检查
+              if (this.sweetHeartOver(it, info)) continue;
+              if (!best || add > best.add)
+                best = { keyName, num, name: it.name, add, item: it };
+            }
+            return best;
+          }
+          // 这件物品用下去，饥饿值/清洁值会不会超过上限
+          sweetHeartOver(it, info) {
+            let pairs = [
+              ["starve", "hunger"],
+              ["clean", "clean"],
+            ];
+            for (let i = 0; i < pairs.length; i++) {
+              let add = isNumber(it[pairs[i][0]]);
+              if (add <= 0) continue;
+              let max = isNumber(info.maxInfo?.[pairs[i][1]]);
+              if (
+                max > 0 &&
+                isNumber(info.info?.[pairs[i][1]]) + add > max
+              )
+                return !0;
+            }
+            return !1;
           }
           countdownActiveTime(e, t, o, i) {
             let n = e?.work
@@ -284,16 +410,6 @@
                   l = getRandom(1, 4),
                   // 这次结算跨过了几个阶段（每次跨阶段都该有一次升学礼包）
                   ups = 0;
-                // 记录这一节课上了什么，供「自动学习」在领完礼包后续课用。
-                // 必须在 e[n] = null 之前拷走；stateTime/startTime 要重置，
-                // 否则续课一开始就被判定为已下课。
-                "study" == n &&
-                  (this.studyPending = {
-                    ...e[n],
-                    stateTime: 0,
-                    startTime: null,
-                    at: Date.now(),
-                  });
                 l = l <= 3 ? 1 : 2;
                 if ("study" == n) {
                   const before = (t.study && t.study[e[n].value]) || 0;

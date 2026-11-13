@@ -90,7 +90,7 @@
                       }
                     },
                     // changeMenu 的 where 是 1-based 下标。菜单项会随需求增减，
-                    // 写死数字很容易错位（加「开启自动学习」时就踩过一次），
+                    // 写死数字很容易错位（以前就这么错过一次），
                     // 统一按渲染层发来的顺序查；查不到返回 [0]（渲染层会跳过）。
                     // menuOrder 为空时（旧页面没带 order）退回默认顺序。
                     w = (e) => {
@@ -102,9 +102,7 @@
                               "openStore",
                               "settingsAndHelp",
                               "stopGrowth",
-                              "autoStudy",
                               "fastActive",
-                              "studyBoost",
                               "quit",
                             ],
                         i = order.indexOf(e);
@@ -138,28 +136,16 @@
                             [w("settingsAndHelp")[0], 1],
                           );
                     },
-                    // 自动学习开关：和「停止成长」同级，直接放在右键菜单里，
-                    // 不用翻设置窗口（那里列表要滚动，找不到）。
-                    // 不加 new 标记——那会在左边多出一个灯泡高亮图标。
-                    m = (e) => {
-                      e?.autoStudy
-                        ? l(
-                            {
-                              label: "关闭自动学习",
-                              value: "closeAutoStudy",
-                            },
-                            w("autoStudy"),
-                          )
-                        : l(
-                            { label: "开启自动学习", value: "openAutoStudy" },
-                            w("autoStudy"),
-                          );
-                    },
-                    // 加速学习/旅游：打开后用缩短过的时长（shop 里的现值，
-                    // 原版的 1/5），关掉按原版时长上课。状态存在
-                    // otherOptions.fastActive，Goods.getStudyInfo 算时长时读。
+                    // 加速学习：原来「加速学习」和「快速学习」是两个开关，现在合成
+                    // 一个。打开后同时做两件事——一节课用缩短的时长（shop 里的现值，
+                    // 原版的 1/5）、下课时把本科目剩余课时一次结算完；关掉就是原版
+                    // 45 分钟一节、一节一结算。只作用于学习，打工时长恒为原版。
+                    // 状态存在 otherOptions.fastActive。
+                    // 合并前老存档里可能只有 studyBoost=true（快速学习）而没有
+                    // fastActive，实际已经在加速了，所以判断要带上它，否则菜单
+                    // 会显示成「开启加速学习」，与实际状态不符。
                     mf = (e) => {
-                      e?.otherOptions?.fastActive
+                      e?.otherOptions?.fastActive || e?.otherOptions?.studyBoost
                         ? l(
                             {
                               label: "关闭加速学习",
@@ -174,23 +160,6 @@
                             },
                             w("fastActive"),
                           );
-                    },
-                    // 快速学习：一节课直接把本科目从当前进度读到研究生毕业，
-                    // 学习值/属性/物品一次性发放（消耗不放大）。
-                    // 状态存在 otherOptions.studyBoost，GrowUp 结算时直接读。
-                    mb = (e) => {
-                      e?.otherOptions?.studyBoost
-                        ? l(
-                            {
-                              label: "关闭快速学习",
-                              value: "closeStudyBoost",
-                            },
-                            w("studyBoost"),
-                          )
-                        : l(
-                            { label: "开启快速学习", value: "openStudyBoost" },
-                            w("studyBoost"),
-                          );
                     };
                   let h = !1,
                     p = ["3-0"];
@@ -203,8 +172,6 @@
                         ? (Array.isArray(o.order) && (n.menuOrder = o.order),
                           r(getPetInfo()),
                           u(getSys()),
-                          m(getSys()),
-                          mb(getPetInfo()),
                           mf(getPetInfo()),
                           t.on("blur", (e) => {
                             h
@@ -265,18 +232,28 @@
                         ].stopNow = !0),
                           setPetInfo({ activeOption: e }),
                           petControl.GrowUp.GrowUpMain({ unGrow: !0 }));
-                      } else if ("openAutoStudy" == o.data.value)
-                        setSys({ name: "autoStudy", value: !0 });
-                      else if ("closeAutoStudy" == o.data.value)
-                        setSys({ name: "autoStudy", value: !1 });
-                      else if ("openStudyBoost" == o.data.value)
-                        setPetInfo({ otherOptions: { studyBoost: !0 } });
-                      else if ("closeStudyBoost" == o.data.value)
-                        setPetInfo({ otherOptions: { studyBoost: !1 } });
+                      }
+                      // 开关只认 fastActive；顺手把老的 studyBoost 清成 false，
+                      // 让状态单一化。不清的话老存档 studyBoost=true 时会「关不掉」
+                      // ——isStudyBoost 读的是两者取或。
                       else if ("openFastActive" == o.data.value)
-                        setPetInfo({ otherOptions: { fastActive: !0 } });
+                        setPetInfo({
+                          otherOptions: { fastActive: !0, studyBoost: !1 },
+                        });
                       else if ("closeFastActive" == o.data.value)
-                        setPetInfo({ otherOptions: { fastActive: !1 } });
+                        setPetInfo({
+                          otherOptions: { fastActive: !1, studyBoost: !1 },
+                        });
+                      // 合并前「快速学习」的开关值：老配置或旧页面还可能发过来，
+                      // 统一折算到 fastActive 上，别只改一个字段。
+                      else if ("openStudyBoost" == o.data.value)
+                        setPetInfo({
+                          otherOptions: { fastActive: !0, studyBoost: !1 },
+                        });
+                      else if ("closeStudyBoost" == o.data.value)
+                        setPetInfo({
+                          otherOptions: { fastActive: !1, studyBoost: !1 },
+                        });
                       else
                         "quit" == o.data.value
                           ? app.quit()
@@ -304,14 +281,14 @@
                         event: "pet",
                         name: n.name,
                         fn: (e) => {
-                          (r(e), mb(e), mf(e));
+                          (r(e), mf(e));
                         },
                       },
                       {
                         event: "system",
                         name: n.name,
                         fn: (e) => {
-                          (u(e), m(e));
+                          u(e);
                         },
                       },
                     ]));
