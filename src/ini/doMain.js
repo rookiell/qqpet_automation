@@ -90,10 +90,14 @@
         activeOption: {
           ill: {
             start: { always: !0 },
+            // 这一段只在「真的在生病」时才该中断打工/学习/旅游。原来是无条件
+            // 置空，而 start.always 让它每次启动都跑，结果存档里的 activeOption.work
+            // 一启动就被抹掉，打工永远不可能跨重启保留。
             fn: (e) => (
-              (n.activeOption.work = null),
-              (n.activeOption.study = null),
-              (n.activeOption.trip = null),
+              e &&
+                ((n.activeOption.work = null),
+                (n.activeOption.study = null),
+                (n.activeOption.trip = null)),
               e
             ),
           },
