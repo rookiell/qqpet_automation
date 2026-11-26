@@ -491,8 +491,10 @@
           this.playTime = null;
           // 正在换片或已有排队动作就先让位，别打断喂食/洗澡这类主动作
           if (this.changeIng || this.nextSwfRouter) return void this.armIdle();
-          // 生病/垂死/死亡(isSick 1/2/3)期间不自发玩耍，恢复后循环会重新放行
-          if (this.router?.isSick) return void this.armIdle();
+          // 生病/垂死/死亡(isSick 1/2/3)期间不自发玩耍，恢复后循环会重新放行。
+          // 4 是「刚复活」的锁，只用来挡住 Die 重放，不是生病状态；把它也算进来
+          // 的话，复活后这一轮永远不会再进玩耍分支，表现就是一直站着不动。
+          if ([1, 2, 3].includes(this.router?.isSick)) return void this.armIdle();
           // 气泡:玩耍 = 1:9（原来 3:7，气泡偏多、动作偏少）
           if (o({ start: 0, end: 100 }) < 10) {
             let t = {
@@ -656,8 +658,10 @@
                 ((this.isSick = 3),
                 this.backFn({ event: "die", value: this.state })))
             : (this.isSickTime && clearInterval(this.isSickTime),
-              4 != this.isSick &&
-                0 != this.isSick &&
+              // 满血就把状态清干净，「刚复活」的锁 4 也一起解开。留着它的原意是
+              // 防止复活瞬间把 Die 再放一遍，但满血后再不解，整个会话里生病/垂死/
+              // 死亡动画都不会再触发，玩耍循环也一直不恢复。
+              0 != this.isSick &&
                 (this.backFn({ event: i || "normal", value: this.state }),
                 (this.isSick = 0))),
         (this.use = "Play"));
